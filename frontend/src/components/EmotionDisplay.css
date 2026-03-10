@@ -1,157 +1,226 @@
-/* EmotionDisplay Component Styles */
+/* EmotionDisplay - Professional Light Theme */
 
 .emotion-display {
-  width: 100%;
-  max-width: 1000px;
-  margin: 20px auto;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+  max-height: 640px;
+  overflow-y: auto;
 }
 
 .emotion-display.empty {
-  padding: 40px 20px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
 }
 
 .no-faces-message {
+  text-align: center;
+  color: #a0aec0;
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.7);
-  margin: 0;
+  font-weight: 500;
 }
 
 .display-title {
-  font-size: 24px;
-  color: #fff;
-  margin-bottom: 20px;
-  text-align: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
   font-weight: 600;
+  font-size: 14px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .faces-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .face-card {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 20px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: linear-gradient(135deg, #f8f9fa 0%, #f0f4f8 100%);
+  border: 1px solid #e0e4e8;
+  border-radius: 10px;
+  padding: 14px;
+  transition: all 0.2s ease;
 }
 
 .face-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
 }
 
 .face-header {
-  border-left: 4px solid #fff;
-  padding-left: 15px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #cbd5e1;
 }
 
 .face-number {
-  display: block;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 10px;
+  font-weight: 700;
+  color: #718096;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+  margin: 0;
 }
 
 .primary-emotion {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e4e8;
 }
 
-.emotion-emoji {
-  font-size: 32px;
+.emotion-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .emotion-name {
-  font-size: 24px;
-  font-weight: bold;
-  color: #fff;
-  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a202c;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin: 0;
 }
 
 .emotion-confidence {
-  font-size: 20px;
+  display: block;
+  font-size: 12px;
+  color: #718096;
   font-weight: 600;
-  color: #4ade80;
+  margin: 2px 0 0 0;
 }
 
 .probabilities {
-  margin-top: 20px;
+  padding: 10px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e4e8;
 }
 
 .prob-title {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 15px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #718096;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e0e4e8;
 }
 
 .prob-bar-container {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.prob-bar-container:last-child {
+  margin-bottom: 0;
 }
 
 .prob-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-  font-size: 14px;
+  gap: 6px;
+  margin-bottom: 3px;
+  font-size: 11px;
 }
 
-.prob-emoji {
-  font-size: 16px;
+.prob-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
 }
 
 .prob-name {
+  font-weight: 600;
+  color: #2c3e50;
   flex: 1;
-  color: rgba(255, 255, 255, 0.9);
   text-transform: capitalize;
 }
 
 .prob-value {
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 600;
-  min-width: 50px;
+  font-weight: 700;
+  color: #1a202c;
+  min-width: 35px;
   text-align: right;
+  font-size: 11px;
 }
 
 .prob-bar-bg {
-  height: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  width: 100%;
+  height: 5px;
+  background: #e0e4e8;
+  border-radius: 2px;
   overflow: hidden;
+  margin-top: 2px;
 }
 
 .prob-bar-fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: 2px;
   transition: width 0.3s ease;
 }
 
-/* Responsive */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 @media (max-width: 768px) {
+  .emotion-display {
+    max-height: 100%;
+  }
+
   .faces-grid {
-    grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 10px;
   }
-  
-  .display-title {
-    font-size: 20px;
-  }
-  
-  .emotion-name {
-    font-size: 20px;
-  }
-  
-  .emotion-confidence {
-    font-size: 16px;
+
+  .face-card {
+    padding: 12px;
   }
 }

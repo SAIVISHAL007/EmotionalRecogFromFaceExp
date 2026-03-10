@@ -153,8 +153,8 @@ class FaceDetector:
                     frame_w,
                     frame_h,
                     pad_x=0.18,
-                    pad_top=0.22,
-                    pad_bottom=0.35,
+                    pad_top=0.12,
+                    pad_bottom=0.55,
                 )
                 filtered_faces.append(expanded)
 
@@ -167,9 +167,9 @@ class FaceDetector:
         bbox: Tuple[int, int, int, int],
         frame_w: int,
         frame_h: int,
-        pad_x: float = 0.15,
-        pad_top: float = 0.2,
-        pad_bottom: float = 0.3,
+        pad_x: float = 0.18,
+        pad_top: float = 0.15,
+        pad_bottom: float = 0.55,
     ) -> Tuple[int, int, int, int]:
         """Expand a face bbox so the ROI contains full forehead/chin context."""
         x, y, w, h = bbox

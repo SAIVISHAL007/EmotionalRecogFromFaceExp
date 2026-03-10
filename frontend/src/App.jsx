@@ -51,13 +51,11 @@ function App() {
       {/* Header */}
       <header className="app-header">
         <div className="header-content">
-          <h1 className="app-title">
-            <span className="title-emoji">🎭</span>
-            Facial Emotion Recognition
-          </h1>
-          <p className="app-subtitle">
-            Real-time emotion detection powered by CNN deep learning
-          </p>
+          <div className="header-icon">◈</div>
+          <div>
+            <h1 className="app-title">Facial Emotion Recognition</h1>
+            <p className="app-subtitle">Real-time CNN-based emotion detection</p>
+          </div>
         </div>
         
         <div className="header-actions">
@@ -66,104 +64,86 @@ function App() {
             onClick={() => setShowInfo(!showInfo)}
             title="About"
           >
-            ℹ️
+            ℹ
           </button>
           
-          <div className={`status-badge status-${backendStatus}`}>
-            {backendStatus === 'checking' && '⏳ Checking...'}
-            {backendStatus === 'connected' && '✅ Connected'}
-            {backendStatus === 'no-model' && '⚠️ No Model'}
-            {backendStatus === 'disconnected' && '❌ Disconnected'}
+          <div className={`status-badge ${backendStatus === 'connected' ? 'connected' : 'disconnected'}`}>
+            {backendStatus === 'checking' && 'Connecting...'}
+            {backendStatus === 'connected' && 'Connected'}
+            {backendStatus === 'no-model' && 'No Model'}
+            {backendStatus === 'disconnected' && 'Offline'}
           </div>
+          
+          <button 
+            className={`toggle-button ${isActive ? 'stop' : 'start'}`}
+            onClick={handleToggle}
+            disabled={backendStatus !== 'connected'}
+          >
+            {isActive ? 'Stop' : 'Start'}
+          </button>
         </div>
       </header>
 
       {/* Info Panel */}
       {showInfo && (
         <div className="info-panel">
+          <h3>System Information</h3>
           <div className="info-content">
-            <h3>About This System</h3>
             <p>
-              This is a real-time facial emotion recognition system built for academic purposes.
-              It uses a Convolutional Neural Network (CNN) trained on the FER-2013 dataset to classify
-              seven emotions: Angry, Disgust, Fear, Happy, Sad, Surprise, and Neutral.
+              Facial emotion recognition system using deep convolutional neural networks.
+              Detects seven emotion classes in real-time from webcam input.
             </p>
             
             {modelInfo && (
               <div className="model-details">
-                <h4>Model Information:</h4>
+                <strong>Model Details:</strong>
                 <ul>
                   <li>Classes: {modelInfo.num_classes}</li>
-                  <li>Parameters: {modelInfo.total_parameters.toLocaleString()}</li>
-                  <li>Input Size: 48x48 grayscale</li>
+                  <li>Input: 48×48 grayscale images</li>
                   <li>Emotions: {modelInfo.emotion_labels.join(', ')}</li>
                 </ul>
               </div>
             )}
-            
-            <h4>How to Use:</h4>
-            <ol>
-              <li>Ensure your webcam is connected and permissions are granted</li>
-              <li>Click the "Start Detection" button</li>
-              <li>Face the camera and watch as emotions are detected in real-time</li>
-              <li>View detailed probability breakdowns for each detected face</li>
-            </ol>
-            
-            <p className="project-credit">
-              <strong>Academic Project:</strong> Neural Networks & Deep Learning
-            </p>
           </div>
         </div>
       )}
 
       {/* Main Content */}
-      <main className="app-main">
+      <div className="app-content">
         {backendStatus === 'disconnected' && (
-          <div className="error-card">
-            <h2>❌ Backend Not Available</h2>
-            <p>Cannot connect to the emotion recognition backend.</p>
-            <p>Please ensure the backend server is running:</p>
-            <code>python backend/main.py</code>
+          <div style={{
+            padding: '40px 20px',
+            textAlign: 'center',
+            color: '#c53030',
+            maxWidth: '600px',
+            margin: '0 auto'
+          }}>
+            <h2 style={{ marginBottom: '16px', fontSize: '24px' }}>Backend Offline</h2>
+            <p style={{ marginBottom: '12px' }}>Cannot connect to emotion recognition backend.</p>
+            <code style={{ background: '#f7fafc', padding: '12px', borderRadius: '6px', display: 'block', marginTop: '12px' }}>
+              uvicorn backend.main:app --host 0.0.0.0 --port 8000
+            </code>
           </div>
         )}
 
         {backendStatus === 'no-model' && (
-          <div className="error-card">
-            <h2>⚠️ Model Not Loaded</h2>
-            <p>The backend is running but the CNN model is not loaded.</p>
-            <p>Please train the model first:</p>
-            <code>python model/train.py</code>
+          <div style={{
+            padding: '40px 20px',
+            textAlign: 'center',
+            color: '#c05621',
+            maxWidth: '600px',
+            margin: '0 auto'
+          }}>
+            <h2 style={{ marginBottom: '16px', fontSize: '24px' }}>Model Not Found</h2>
+            <p style={{ marginBottom: '12px' }}>Backend is running but CNN model is not loaded.</p>
+            <code style={{ background: '#f7fafc', padding: '12px', borderRadius: '6px', display: 'block', marginTop: '12px' }}>
+              python model/train.py
+            </code>
           </div>
         )}
 
         {backendStatus === 'connected' && (
           <>
-            {/* Control Panel */}
-            <div className="control-panel">
-              <button 
-                className={`control-button ${isActive ? 'stop' : 'start'}`}
-                onClick={handleToggle}
-              >
-                {isActive ? (
-                  <>
-                    <span className="button-icon">⏸️</span>
-                    Stop Detection
-                  </>
-                ) : (
-                  <>
-                    <span className="button-icon">▶️</span>
-                    Start Detection
-                  </>
-                )}
-              </button>
-              
-              {isActive && (
-                <p className="control-hint">
-                  Detection is active. Face the camera to see your emotions!
-                </p>
-              )}
-            </div>
-
             {/* Webcam Feed */}
             <WebcamFeed 
               isActive={isActive}
@@ -172,22 +152,10 @@ function App() {
             />
 
             {/* Emotion Display */}
-            {isActive && (
-              <EmotionDisplay faces={currentFaces} />
-            )}
+            <EmotionDisplay faces={isActive ? currentFaces : []} />
           </>
         )}
-      </main>
-
-      {/* Footer */}
-      <footer className="app-footer">
-        <p>
-          Built with React + FastAPI + TensorFlow/Keras
-        </p>
-        <p className="footer-tech">
-          🔬 CNN • 📹 OpenCV • ⚡ Real-time Processing
-        </p>
-      </footer>
+      </div>
     </div>
   );
 }
