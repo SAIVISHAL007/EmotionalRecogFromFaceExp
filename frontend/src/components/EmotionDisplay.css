@@ -1,0 +1,157 @@
+/* EmotionDisplay Component Styles */
+
+.emotion-display {
+  width: 100%;
+  max-width: 1000px;
+  margin: 20px auto;
+}
+
+.emotion-display.empty {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.no-faces-message {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.display-title {
+  font-size: 24px;
+  color: #fff;
+  margin-bottom: 20px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.faces-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.face-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.face-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.face-header {
+  border-left: 4px solid #fff;
+  padding-left: 15px;
+  margin-bottom: 20px;
+}
+
+.face-number {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.primary-emotion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.emotion-emoji {
+  font-size: 32px;
+}
+
+.emotion-name {
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff;
+  flex: 1;
+}
+
+.emotion-confidence {
+  font-size: 20px;
+  font-weight: 600;
+  color: #4ade80;
+}
+
+.probabilities {
+  margin-top: 20px;
+}
+
+.prob-title {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.prob-bar-container {
+  margin-bottom: 12px;
+}
+
+.prob-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.prob-emoji {
+  font-size: 16px;
+}
+
+.prob-name {
+  flex: 1;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: capitalize;
+}
+
+.prob-value {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+  min-width: 50px;
+  text-align: right;
+}
+
+.prob-bar-bg {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.prob-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .faces-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .display-title {
+    font-size: 20px;
+  }
+  
+  .emotion-name {
+    font-size: 20px;
+  }
+  
+  .emotion-confidence {
+    font-size: 16px;
+  }
+}

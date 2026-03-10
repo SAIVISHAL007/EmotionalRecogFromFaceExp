@@ -1,0 +1,2 @@
+# This directory will store trained model files
+# Models are typically large and excluded from git via .gitignore
