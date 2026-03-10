@@ -64,8 +64,8 @@ const WebcamFeed = ({ isActive, captureInterval = 200, onFacesDetected }) => {
     const context = canvas.getContext('2d');
 
     // Resize for faster processing - use smaller resolution
-    const targetWidth = 320;
-    const targetHeight = 240;
+    const targetWidth = 384;
+    const targetHeight = 288;
     canvas.width = targetWidth;
     canvas.height = targetHeight;
 
@@ -73,7 +73,7 @@ const WebcamFeed = ({ isActive, captureInterval = 200, onFacesDetected }) => {
     context.drawImage(video, 0, 0, targetWidth, targetHeight);
 
     // Convert canvas to base64 with lower quality for speed
-    const base64Image = canvas.toDataURL('image/jpeg', 0.5);
+    const base64Image = canvas.toDataURL('image/jpeg', 0.75);
 
     setIsProcessing(true);
 
@@ -158,8 +158,8 @@ const WebcamFeed = ({ isActive, captureInterval = 200, onFacesDetected }) => {
           {predictions.map((face, index) => {
             // Scale coordinates from processed image (320x240) to video display size
             const video = videoRef.current;
-            const scaleX = video ? video.videoWidth / 320 : 2;
-            const scaleY = video ? video.videoHeight / 240 : 2;
+            const scaleX = video ? video.videoWidth / 384 : 2;
+            const scaleY = video ? video.videoHeight / 288 : 2;
             
             const [origX, origY, origW, origH] = face.bbox;
             const x = origX * scaleX;

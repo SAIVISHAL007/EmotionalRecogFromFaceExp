@@ -9,7 +9,8 @@ import os
 # ==========================
 DATASET_NAME = "FER-2013"
 NUM_CLASSES = 7
-EMOTION_LABELS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
+# Must be in alphabetical order to match sorted(os.listdir()) and flow_from_directory
+EMOTION_LABELS = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
 
 # Image specifications
 IMAGE_HEIGHT = 48
@@ -38,7 +39,7 @@ DENSE_UNITS = [512, 256]
 # Training Configuration
 # ==========================
 BATCH_SIZE = 64
-EPOCHS = 50
+EPOCHS = 15
 VALIDATION_SPLIT = 0.2
 
 # Optimizer
@@ -67,8 +68,8 @@ AUGMENTATION_CONFIG = {
 # ==========================
 # Callbacks
 # ==========================
-EARLY_STOPPING_PATIENCE = 10
-REDUCE_LR_PATIENCE = 5
+EARLY_STOPPING_PATIENCE = 5
+REDUCE_LR_PATIENCE = 3
 REDUCE_LR_FACTOR = 0.5
 
 # ==========================
@@ -81,7 +82,7 @@ LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 
 # Model save path
 MODEL_SAVE_PATH = os.path.join(MODEL_DIR, 'emotion_cnn_model.h5')
-MODEL_WEIGHTS_PATH = os.path.join(MODEL_DIR, 'emotion_cnn_weights.h5')
+MODEL_WEIGHTS_PATH = os.path.join(MODEL_DIR, 'emotion_cnn_weights.weights.h5')
 TRAINING_HISTORY_PATH = os.path.join(LOGS_DIR, 'training_history.json')
 
 # Create directories if they don't exist

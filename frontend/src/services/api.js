@@ -6,7 +6,9 @@
 
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Use relative paths so Vite's dev-server proxy forwards /api/* to port 8000.
+// In production, set VITE_API_URL to the full backend URL.
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -73,8 +75,8 @@ export const predictEmotionFromFile = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
     
-    const response = await axios.post(
-      `${API_BASE_URL}/api/predict`,
+    const response = await api.post(
+      '/api/predict',
       formData,
       {
         headers: {

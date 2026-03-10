@@ -1,0 +1,22 @@
+{
+  "pythonVersion": "3.12",
+  "pythonPath": "/home/codespace/.python/current/bin/python3",
+  "venvPath": "/home/codespace/.python",
+  "venv": "current",
+  "include": [
+    "backend",
+    "model",
+    "realtime",
+    "data"
+  ],
+  "exclude": [
+    "frontend",
+    "**/.*",
+    ".venv",
+    "**/.venv",
+    "**/node_modules",
+    "**/__pycache__"
+  ],
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
+}

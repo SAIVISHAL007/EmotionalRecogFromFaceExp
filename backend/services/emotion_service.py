@@ -10,7 +10,7 @@ import sys
 import numpy as np
 import cv2
 import base64
-from typing import List, Tuple, Dict
+from typing import Any, Dict, List, Optional, Tuple
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -38,8 +38,10 @@ class EmotionRecognitionService:
         self.model_path = model_path or config.MODEL_SAVE_PATH
         
         # Initialize components
-        self.face_detector = None
-        self.emotion_predictor = None
+        self.face_detector: Optional[FaceDetector] = None
+        self.emotion_predictor: Optional[EmotionPredictor] = None
+        self._emotion_ema: Optional[np.ndarray] = None
+        self._ema_decay = 0.35
         
         self._initialize()
     
@@ -50,9 +52,10 @@ class EmotionRecognitionService:
         # Initialize face detector
         self.face_detector = FaceDetector(
             method='haar',
-            scale_factor=1.1,
+            scale_factor=1.05,
             min_neighbors=5,
-            min_size=(30, 30)
+            min_size=(50, 50),
+            max_faces=1
         )
         print("✅ Face detector initialized")
         
@@ -74,6 +77,12 @@ class EmotionRecognitionService:
         return (self.face_detector is not None and 
                 self.emotion_predictor is not None and
                 self.emotion_predictor.model is not None)
+
+    def _require_components(self) -> Tuple[FaceDetector, EmotionPredictor]:
+        """Return initialized components or raise a clear error."""
+        if self.face_detector is None or self.emotion_predictor is None:
+            raise RuntimeError("Emotion service not initialized")
+        return self.face_detector, self.emotion_predictor
     
     def decode_image(self, image_data: bytes) -> np.ndarray:
         """
@@ -133,27 +142,45 @@ class EmotionRecognitionService:
                    - confidence: float
                    - probabilities: dict of {emotion: probability}
         """
+        face_detector, emotion_predictor = self._require_components()
+
         # Detect faces
-        faces = self.face_detector.detect_faces(image)
+        faces = face_detector.detect_faces(image)
+        if not faces:
+            self._emotion_ema = None
         
         results = []
         annotated_image = image.copy()
         
         for face_bbox in faces:
             # Extract face ROI
-            face_roi = self.face_detector.extract_face_roi(
+            face_roi = face_detector.extract_face_roi(
                 image, face_bbox,
                 target_size=(48, 48),
                 grayscale=True
             )
             
             # Predict emotion
-            emotion, confidence, all_probs = self.emotion_predictor.predict_emotion(face_roi)
+            _, _, all_probs = emotion_predictor.predict_emotion(face_roi)
+
+            probs = np.asarray(all_probs, dtype=np.float32)
+            if self._emotion_ema is None:
+                self._emotion_ema = probs
+            else:
+                self._emotion_ema = self._ema_decay * self._emotion_ema + (1.0 - self._ema_decay) * probs
+
+            # Keep numeric stability for downstream dict serialization.
+            probs_sum = float(np.sum(self._emotion_ema))
+            smoothed_probs = self._emotion_ema / probs_sum if probs_sum > 0 else probs
+
+            best_idx = int(np.argmax(smoothed_probs))
+            confidence = float(smoothed_probs[best_idx])
+            emotion = config.EMOTION_LABELS[best_idx]
             
             # Create probabilities dict
             probabilities = {
                 label: float(prob)
-                for label, prob in zip(config.EMOTION_LABELS, all_probs)
+                for label, prob in zip(config.EMOTION_LABELS, smoothed_probs)
             }
             
             # Add to results
@@ -166,14 +193,14 @@ class EmotionRecognitionService:
             })
             
             # Draw on image
-            annotated_image = self.emotion_predictor.draw_emotion_label(
+            annotated_image = emotion_predictor.draw_emotion_label(
                 annotated_image, face_bbox, emotion, confidence,
                 show_confidence=True
             )
         
         return results, annotated_image
     
-    def get_model_info(self) -> Dict:
+    def get_model_info(self) -> Optional[Dict[str, Any]]:
         """
         Get information about the loaded model.
         
@@ -182,8 +209,11 @@ class EmotionRecognitionService:
         """
         if not self.is_ready():
             return None
-        
-        info = self.emotion_predictor.get_model_info()
+
+        _, emotion_predictor = self._require_components()
+        info = emotion_predictor.get_model_info()
+        if info is None:
+            return None
         
         # Convert to JSON-serializable format
         return {

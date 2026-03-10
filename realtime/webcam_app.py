@@ -25,6 +25,7 @@ import cv2
 import numpy as np
 import time
 from datetime import datetime
+from typing import Optional
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -54,9 +55,9 @@ class EmotionRecognitionApp:
         self.model_path = model_path or config.MODEL_SAVE_PATH
         
         # Initialize components
-        self.face_detector = None
-        self.emotion_predictor = None
-        self.cap = None
+        self.face_detector: Optional[FaceDetector] = None
+        self.emotion_predictor: Optional[EmotionPredictor] = None
+        self.cap: Optional[cv2.VideoCapture] = None
         
         # App state
         self.paused = False
@@ -82,9 +83,10 @@ class EmotionRecognitionApp:
         print("Initializing face detector...")
         self.face_detector = FaceDetector(
             method='haar',
-            scale_factor=1.1,
-            min_neighbors=5,
-            min_size=(30, 30)
+            scale_factor=1.05,
+            min_neighbors=7,
+            min_size=(60, 60),
+            max_faces=1
         )
         
         # Initialize emotion predictor
@@ -98,6 +100,9 @@ class EmotionRecognitionApp:
         
         # Display model info
         info = self.emotion_predictor.get_model_info()
+        if info is None:
+            print("\n❌ Failed to read model info")
+            sys.exit(1)
         print(f"\n✅ Model loaded: {info['num_classes']} emotions")
         print(f"   Emotions: {', '.join(info['emotion_labels'])}")
         
@@ -126,6 +131,7 @@ class EmotionRecognitionApp:
         
         # Main loop
         prev_time = time.time()
+        processed_frame = np.zeros((480, 640, 3), dtype=np.uint8)
         
         try:
             while True:
@@ -190,6 +196,9 @@ class EmotionRecognitionApp:
         Returns:
             numpy.ndarray: Processed frame with annotations
         """
+        if self.face_detector is None or self.emotion_predictor is None:
+            return frame
+
         # Detect faces
         faces = self.face_detector.detect_faces(frame)
         

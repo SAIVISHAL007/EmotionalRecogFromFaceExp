@@ -31,8 +31,9 @@ from datetime import datetime
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.callbacks import (
-    ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, TensorBoard
+    ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 )
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 # Local imports
 import config
@@ -91,19 +92,10 @@ def setup_callbacks(model_path, log_dir):
     )
     callbacks.append(reduce_lr)
     
-    # TensorBoard - Visualization
-    tensorboard = TensorBoard(
-        log_dir=log_dir,
-        histogram_freq=1,
-        write_graph=True
-    )
-    callbacks.append(tensorboard)
-    
     print(f"\n✅ Callbacks configured:")
     print(f"   - ModelCheckpoint: {model_path}")
     print(f"   - EarlyStopping: patience={config.EARLY_STOPPING_PATIENCE}")
-    print(f"   - ReduceLROnPlateau: factor={config.REDUCE_LR_FACTOR}, patience={config.REDUCE_LR_PATIENCE}")
-    print(f"   - TensorBoard: {log_dir}\n")
+    print(f"   - ReduceLROnPlateau: factor={config.REDUCE_LR_FACTOR}, patience={config.REDUCE_LR_PATIENCE}\n")
     
     return callbacks
 
@@ -180,8 +172,8 @@ def split_validation_data(X_train, y_train, validation_split=0.2):
 
 
 def main():
-    """Main training pipeline."""
-    
+    """Main training pipeline (uses ImageDataGenerator to stream from disk)."""
+
     print("\n" + "="*70)
     print("FACIAL EMOTION RECOGNITION - CNN TRAINING")
     print("="*70)
@@ -190,110 +182,161 @@ def main():
     print(f"Emotion labels: {config.EMOTION_LABELS}")
     print(f"Image size: {config.IMAGE_HEIGHT}x{config.IMAGE_WIDTH}")
     print("="*70 + "\n")
-    
-    # ==================
-    # 1. Load Dataset
-    # ==================
-    print("STEP 1: Loading FER-2013 Dataset")
-    print("-"*70)
-    
-    data = load_fer2013_data()
-    
-    if data is None:
-        print("\n❌ Failed to load dataset!")
-        print("Please ensure FER-2013 dataset is downloaded.")
-        print("Run: python data/download_fer2013.py")
+
+    train_dir = os.path.join(config.DATA_DIR, 'train')
+    test_dir  = os.path.join(config.DATA_DIR, 'test')
+
+    if not os.path.isdir(train_dir):
+        print(f"\n❌ Training directory not found: {train_dir}")
         return
-    
-    X_train, y_train, X_test, y_test, class_names = data
-    
-    # Split validation data from training data
-    X_train, y_train, X_val, y_val = split_validation_data(
-        X_train, y_train,
-        validation_split=config.VALIDATION_SPLIT
+
+    # ==================
+    # 1. Data Generators  (stream from disk – no OOM)
+    # ==================
+    print("STEP 1: Setting up Data Generators")
+    print("-"*70)
+
+    target_size = (config.IMAGE_HEIGHT, config.IMAGE_WIDTH)
+
+    train_datagen = ImageDataGenerator(
+        rescale=1.0/255,
+        validation_split=config.VALIDATION_SPLIT,
+        rotation_range=15,
+        width_shift_range=0.1,
+        height_shift_range=0.1,
+        horizontal_flip=True,
+        zoom_range=0.1,
+        fill_mode='nearest'
     )
-    
+    test_datagen = ImageDataGenerator(rescale=1.0/255)
+
+    # Sorted class order matches config.EMOTION_LABELS (both alphabetical)
+    class_order = sorted(config.EMOTION_LABELS)
+
+    train_gen = train_datagen.flow_from_directory(
+        train_dir,
+        target_size=target_size,
+        color_mode='grayscale',
+        classes=class_order,
+        class_mode='categorical',
+        batch_size=config.BATCH_SIZE,
+        subset='training',
+        shuffle=True
+    )
+
+    val_gen = train_datagen.flow_from_directory(
+        train_dir,
+        target_size=target_size,
+        color_mode='grayscale',
+        classes=class_order,
+        class_mode='categorical',
+        batch_size=config.BATCH_SIZE,
+        subset='validation',
+        shuffle=False
+    )
+
+    test_gen = test_datagen.flow_from_directory(
+        test_dir,
+        target_size=target_size,
+        color_mode='grayscale',
+        classes=class_order,
+        class_mode='categorical',
+        batch_size=config.BATCH_SIZE,
+        shuffle=False
+    )
+
+    print(f"\n📊 Data splits:")
+    print(f"   Training batches : {len(train_gen)}  ({train_gen.samples} samples)")
+    print(f"   Validation batches: {len(val_gen)}  ({val_gen.samples} samples)")
+    print(f"   Test batches     : {len(test_gen)}  ({test_gen.samples} samples)")
+
     # ==================
     # 2. Build Model
     # ==================
     print("\nSTEP 2: Building CNN Model")
     print("-"*70)
-    
+
     model = build_cnn_model(
         input_shape=(config.IMAGE_HEIGHT, config.IMAGE_WIDTH, config.IMAGE_CHANNELS),
         num_classes=config.NUM_CLASSES
     )
-    
     model = compile_model(model, learning_rate=config.LEARNING_RATE)
-    
     get_model_summary(model)
-    
+
     # ==================
     # 3. Setup Callbacks
     # ==================
     print("\nSTEP 3: Setting up Callbacks")
     print("-"*70)
-    
-    # Create log directory with timestamp
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = os.path.join(config.LOGS_DIR, f"training_{timestamp}")
     os.makedirs(log_dir, exist_ok=True)
-    
+
     callbacks = setup_callbacks(
         model_path=config.MODEL_SAVE_PATH,
         log_dir=log_dir
     )
-    
+
     # ==================
     # 4. Train Model
     # ==================
     print("\nSTEP 4: Training Model")
     print("-"*70)
-    
-    history = train_model(
-        model=model,
-        X_train=X_train,
-        y_train=y_train,
-        X_val=X_val,
-        y_val=y_val,
-        callbacks=callbacks
+    print(f"Training samples: {train_gen.samples}")
+    print(f"Validation samples: {val_gen.samples}")
+    print(f"Batch size: {config.BATCH_SIZE}")
+    print(f"Epochs: {config.EPOCHS}")
+    print(f"Learning rate: {config.LEARNING_RATE}")
+    print("="*70 + "\n")
+
+    history = model.fit(
+        train_gen,
+        epochs=config.EPOCHS,
+        validation_data=val_gen,
+        callbacks=callbacks,
+        verbose=1
     )
-    
+
+    print("\n" + "="*70)
+    print("TRAINING COMPLETE")
+    print("="*70 + "\n")
+
     # ==================
     # 5. Evaluate on Test Set
     # ==================
     print("\nSTEP 5: Evaluating on Test Set")
     print("-"*70)
-    
-    test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=1)
-    
+
+    test_loss, test_accuracy = model.evaluate(test_gen, verbose=1)
+
     print(f"\n{'='*70}")
     print(f"FINAL TEST RESULTS")
     print(f"{'='*70}")
     print(f"Test Loss: {test_loss:.4f}")
     print(f"Test Accuracy: {test_accuracy*100:.2f}%")
     print(f"{'='*70}\n")
-    
+
     # ==================
     # 6. Save Results
     # ==================
     print("\nSTEP 6: Saving Results")
     print("-"*70)
-    
-    # Save training history
+
     history_path = os.path.join(log_dir, 'training_history.json')
     save_training_history(history, history_path)
-    
-    # Save final model weights
+
     weights_path = config.MODEL_WEIGHTS_PATH
     model.save_weights(weights_path)
     print(f"Model weights saved to: {weights_path}")
-    
-    # Plot training curves
-    print("\nGenerating training plots...")
-    plot_path = os.path.join(log_dir, 'training_history.png')
-    plot_training_history(history, save_path=plot_path)
-    
+
+    try:
+        plot_path = os.path.join(log_dir, 'training_history.png')
+        plot_training_history(history, save_path=plot_path)
+        print(f"Plots saved to: {plot_path}")
+    except Exception as e:
+        print(f"⚠️  Could not generate plots (headless env): {e}")
+
     # ==================
     # 7. Summary
     # ==================
@@ -303,15 +346,13 @@ def main():
     print(f"✅ Model saved: {config.MODEL_SAVE_PATH}")
     print(f"✅ Weights saved: {weights_path}")
     print(f"✅ History saved: {history_path}")
-    print(f"✅ Plots saved: {plot_path}")
     print(f"✅ Logs directory: {log_dir}")
     print(f"\n📊 Final Performance:")
     print(f"   Test Accuracy: {test_accuracy*100:.2f}%")
     print(f"   Test Loss: {test_loss:.4f}")
     print("\n💡 Next Steps:")
     print("   1. Run evaluation: python model/evaluate.py")
-    print("   2. Test real-time detection: python realtime/webcam_app.py")
-    print("   3. Start backend API: python backend/main.py")
+    print("   2. Start backend API: uvicorn backend.main:app --reload --port 8000")
     print("="*70 + "\n")
 
 

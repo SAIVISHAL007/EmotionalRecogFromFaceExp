@@ -66,3 +66,4 @@ frontend/.env.local
 *.bak
 temp/
 tmp/
+.venv/
