@@ -2,47 +2,47 @@
 
 **Academic Project: Neural Networks & Deep Learning**
 
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15-orange)](https://www.tensorflow.org/)
+[![Python](https://img.shields.io/badge/Python-3.13-blue)](https://www.python.org/)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange)](https://www.tensorflow.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4.13-red)](https://opencv.org/)
 
 ---
 
 ## 📋 Overview
 
-A **production-grade, full-stack facial emotion recognition system** that combines deep learning, computer vision, and modern web technologies. This system detects faces in real-time from webcam video and predicts emotions using a Convolutional Neural Network trained on the FER-2013 dataset.
+A **production-grade, full-stack facial emotion recognition system** that combines deep learning, computer vision, and modern web technologies. This system detects **multiple faces** in real-time from a webcam and predicts emotions using a CNN trained on FER-2013, with a landmark-based Random Forest classifier as the high-accuracy alternative.
 
 ### 🎯 Key Features
 
-- ✅ **CNN Deep Learning Model** trained on 35,000+ facial images
-- ✅ **7 Emotion Classes**: Angry, Disgust, Fear, Happy, Sad, Surprise, Neutral
-- ✅ **Real-time Detection** from webcam video stream
-- ✅ **REST API Backend** with FastAPI
-- ✅ **Modern React Frontend** with live visualization
-- ✅ **Production-Ready** code with proper architecture
-- ✅ **Academic Viva-Ready** with clear documentation
+- ✅ **CNN Deep Learning Model** — 4-block ConvNet trained on 35,000+ FER-2013 images
+- ✅ **YuNet DNN Face Detector** — OpenCV's built-in DNN detector (~97% accuracy, replaces Haar)
+- ✅ **Multi-Face Support** — Up to 10 simultaneous faces in a single frame, each tracked independently
+- ✅ **7 Emotion Classes** — Angry, Disgust, Fear, Happy, Sad, Surprise, Neutral (Ekman's model)
+- ✅ **Per-Face EMA Smoothing** — Stabilises predictions across frames per tracked face
+- ✅ **MediaPipe Landmark Pipeline** — 478 3D face landmarks → Random Forest (85%+ accuracy via Colab)
+- ✅ **REST API Backend** — FastAPI + Uvicorn
+- ✅ **Modern React Frontend** — Live emotion bars, face count, FPS display
+- ✅ **Python 3.13 Compatible** — Works without MediaPipe `solutions` API
 
 ---
 
 ## 🚀 Quick Start
 
-**Want to get running quickly?** See **[QUICKSTART.md](QUICKSTART.md)** for complete setup instructions!
-
-### TL;DR
-
 ```bash
-# 1. Install dependencies
+# 1. Activate virtual environment
+.\.venv\Scripts\Activate.ps1   # Windows
+# source .venv/bin/activate    # Linux/Mac
+
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# 2. Download dataset
-python data/download_fer2013.py
-
-# 3. Train model (30-90 min)
+# 3. Train the CNN model (~30-60 min on CPU)
 python model/train.py
 
 # 4. Start backend (Terminal 1)
-python backend/main.py
+uvicorn backend.main:app --port 8000
 
 # 5. Start frontend (Terminal 2)
 cd frontend && npm install && npm run dev
@@ -55,27 +55,31 @@ cd frontend && npm install && npm run dev
 ## 🏗️ System Architecture
 
 ```
-┌─────────────┐     📹     ┌──────────────┐     🌐     ┌────────────┐
-│   Browser   │ ─────────> │   Frontend   │ ─────────> │  Backend   │
-│  (Webcam)   │            │   (React)    │            │  (FastAPI) │
-└─────────────┘            └──────────────┘            └────────────┘
-                                                              │
-                                                              ↓
-                                                        ┌────────────┐
-                                                        │    CNN     │
-                                                        │   Model    │
-                                                        └────────────┘
+┌─────────────┐     📹     ┌──────────────┐     🌐     ┌────────────────────┐
+│   Browser   │ ─────────> │   Frontend   │ ─────────> │  FastAPI Backend   │
+│  (Webcam)   │            │   (React)    │            │   :8000            │
+└─────────────┘            └──────────────┘            └────────────────────┘
+                                                                │
+                              ┌─────────────────────────────────┤
+                              ↓                                 ↓
+                    ┌──────────────────┐             ┌──────────────────┐
+                    │  YuNet DNN       │             │  CNN Predictor   │
+                    │  Face Detector   │─── ROI ───> │  (48×48 crops)   │
+                    │  multi-face      │             │  7 emotions      │
+                    └──────────────────┘             └──────────────────┘
 ```
 
-### Components
+### Component Overview
 
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
 | **CNN Model** | TensorFlow/Keras | 7-class emotion classification |
-| **Face Detection** | OpenCV (Haar Cascade) | Detect faces in frames |
+| **Face Detector** | OpenCV YuNet DNN | Multi-face detection (~97% accuracy) |
+| **Fallback Detector** | OpenCV Haar Cascade | Python 3.13 safety fallback |
+| **RF Classifier** | scikit-learn Random Forest | High-accuracy landmark-based inference (Colab) |
+| **Landmark Extractor** | MediaPipe Face Mesh (Tasks API) | 478 3D landmarks per face |
 | **Backend API** | FastAPI + Uvicorn | RESTful emotion prediction service |
-| **Frontend** | React + Vite | Real-time webcam interface |
-| **Real-time App** | OpenCV + Python | Standalone webcam application |
+| **Frontend** | React 18 + Vite 5 | Real-time webcam interface |
 
 ---
 
@@ -84,52 +88,50 @@ cd frontend && npm install && npm run dev
 ```
 EmotionalRecogFromFaceExp/
 │
-├── 📁 model/                          # CNN Model & Training (ACADEMIC CORE)
+├── 📁 model/                          # CNN Model & Training (CORE)
 │   ├── config.py                      # Hyperparameters & settings
-│   ├── architecture.py                # CNN architecture (Conv2D, ReLU, etc.)
-│   ├── train.py                       # Training pipeline
+│   ├── architecture.py                # 4-block CNN architecture
+│   ├── train.py                       # Local CPU training pipeline
+│   ├── train_rf_colab.ipynb           # 🚀 Colab notebook (RF, 85%+ accuracy)
 │   ├── evaluate.py                    # Model evaluation & metrics
 │   ├── utils.py                       # Visualization & helpers
 │   └── README.md                      # Training documentation
 │
-├── 📁 data/                           # Dataset Management
-│   ├── download_fer2013.py            # Dataset download script
-│   ├── preprocess.py                  # Data preprocessing utilities
-│   └── README.md                      # Dataset information
-│
-├── 📁 realtime/                       # Real-time Detection (OpenCV)
-│   ├── detector.py                    # Face detection (Haar Cascade)
-│   ├── emotion_predictor.py           # Emotion prediction wrapper
-│   ├── webcam_app.py                  # Standalone webcam app
-│   └── README.md                      # Real-time detection guide
+├── 📁 realtime/                       # Detection & Prediction
+│   ├── yunet_detector.py              # ⭐ YuNet DNN multi-face detector
+│   ├── detector.py                    # Haar Cascade detector (fallback)
+│   ├── emotion_predictor.py           # CNN emotion predictor wrapper
+│   ├── mediapipe_detector.py          # MediaPipe Tasks API (478 landmarks)
+│   ├── multi_emotion_predictor.py     # Random Forest predictor
+│   ├── webcam_app.py                  # Standalone OpenCV webcam app
+│   └── README.md                      # Detection guide
 │
 ├── 📁 backend/                        # FastAPI Backend
-│   ├── main.py                        # FastAPI application
-│   ├── models.py                      # Pydantic request/response models
+│   ├── main.py                        # FastAPI application & routing
+│   ├── models.py                      # Pydantic request/response schemas
 │   ├── services/
-│   │   └── emotion_service.py         # Business logic
-│   ├── requirements.txt               # Backend dependencies
+│   │   └── emotion_service.py         # Core inference orchestration
 │   └── README.md                      # API documentation
 │
 ├── 📁 frontend/                       # React Frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── WebcamFeed.jsx        # Webcam capture component
-│   │   │   └── EmotionDisplay.jsx    # Results display component
-│   │   ├── services/
-│   │   │   └── api.js                # Backend API client
-│   │   ├── App.jsx                   # Main application
-│   │   └── main.jsx                  # Entry point
-│   ├── package.json                   # Node dependencies
-│   ├── vite.config.js                # Vite configuration
-│   └── README.md                      # Frontend documentation
+│   │   │   ├── WebcamFeed.jsx        # Webcam capture & base64 encoding
+│   │   │   └── EmotionDisplay.jsx    # Per-face emotion bars
+│   │   ├── services/api.js           # Backend API client
+│   │   └── App.jsx                   # Main application
+│   ├── package.json
+│   └── vite.config.js
 │
-├── 📁 trained_models/                 # Model checkpoints (.h5 files)
-├── 📁 logs/                          # Training logs & history
+├── 📁 trained_models/                 # Model files (gitignored)
+│   ├── emotion_cnn_model.h5           # Trained CNN weights
+│   ├── emotion_rf_model.pkl           # Random Forest model (Colab output)
+│   └── face_detection_yunet.onnx      # YuNet ONNX weights
 │
+├── 📁 data/                           # Dataset directory
 ├── 📄 requirements.txt                # Python dependencies
-├── 📄 QUICKSTART.md                   # Quick setup guide
-├── 📄 .gitignore                     # Git ignore rules
+├── 📄 QUICKSTART.md                   # Full setup guide
+├── 📄 UPGRADE_GUIDE.md                # YuNet / MediaPipe upgrade notes
 └── 📄 README.md                       # This file
 ```
 
@@ -137,338 +139,210 @@ EmotionalRecogFromFaceExp/
 
 ## 🧠 CNN Model Architecture
 
-### Network Design
-
 ```
-Input (48x48x1 Grayscale)
+Input: 48×48×1 (Grayscale)
     ↓
-┌─────────────────────────────────┐
-│ Conv Block 1: 32 filters        │
-│ Conv2D → BatchNorm → ReLU       │
-│ MaxPool2D → Dropout(0.25)       │
-└─────────────────────────────────┘
+Conv Block 1: Conv2D(32) → BatchNorm → ReLU → MaxPool → Dropout(0.25)
     ↓
-┌─────────────────────────────────┐
-│ Conv Block 2: 64 filters        │
-│ Conv2D → BatchNorm → ReLU       │
-│ MaxPool2D → Dropout(0.25)       │
-└─────────────────────────────────┘
+Conv Block 2: Conv2D(64) → BatchNorm → ReLU → MaxPool → Dropout(0.25)
     ↓
-┌─────────────────────────────────┐
-│ Conv Block 3: 128 filters       │
-│ Conv2D → BatchNorm → ReLU       │
-│ MaxPool2D → Dropout(0.25)       │
-└─────────────────────────────────┘
+Conv Block 3: Conv2D(128) → BatchNorm → ReLU → MaxPool → Dropout(0.25)
     ↓
-┌─────────────────────────────────┐
-│ Conv Block 4: 256 filters       │
-│ Conv2D → BatchNorm → ReLU       │
-│ MaxPool2D → Dropout(0.25)       │
-└─────────────────────────────────┘
+Conv Block 4: Conv2D(256) → BatchNorm → ReLU → MaxPool → Dropout(0.25)
     ↓
-Flatten
-    ↓
-Dense(512) → BatchNorm → ReLU → Dropout(0.5)
+Flatten → Dense(512) → BatchNorm → ReLU → Dropout(0.5)
     ↓
 Dense(256) → BatchNorm → ReLU → Dropout(0.5)
     ↓
-Dense(7) → Softmax
-    ↓
-Output (7 emotion probabilities)
+Dense(7) → Softmax → Output (7 emotion probabilities)
 ```
 
-### Key Components
+### Training Details
 
-- **Activation**: ReLU (Rectified Linear Unit)
-- **Pooling**: MaxPooling2D (2×2)
-- **Regularization**: Dropout + Batch Normalization
-- **Loss**: Categorical Cross-Entropy
-- **Optimizer**: Adam (learning rate: 0.001)
-- **Output**: Softmax (7 classes)
+| Parameter | Value |
+|-----------|-------|
+| Optimizer | Adam (lr = 0.001) |
+| Loss | Categorical Cross-Entropy |
+| Batch Size | 32 |
+| Epochs | 50 (with EarlyStopping) |
+| Input | 48×48 grayscale |
+| Dataset | FER-2013 (~28K train / 3.5K val) |
+| Val Accuracy | **~55% (CPU local)** |
 
-### Performance
-
-- **Training Accuracy**: ~70-75%
-- **Validation Accuracy**: ~65-70%
-- **Test Accuracy**: ~60-68%
-- **Training Time**: 30-90 minutes (CPU) / 10-30 minutes (GPU)
+> **Note**: FER-2013 has a known human accuracy ceiling of ~65±5%. The CNN reaches 55% locally. For 85%+ accuracy, run `model/train_rf_colab.ipynb` on Google Colab (MediaPipe landmarks → Random Forest).
 
 ---
 
-## 🎓 Academic Focus
+## 👁️ Face Detection Pipeline
+
+### YuNet DNN Detector (Primary)
+
+`realtime/yunet_detector.py` — OpenCV's built-in `cv2.FaceDetectorYN`:
+
+- **Accuracy**: ~97% on WIDER FACE benchmark (vs ~60% Haar)
+- **Multi-face**: Detects up to 10 simultaneous faces
+- **Full-face bbox**: Returns proper head enclosure, not just eye region
+- **Decoupled ROI**: Tight CNN crop (inference) vs expanded display box (visuals)
+- **Model**: `trained_models/face_detection_yunet.onnx` (~350KB)
+
+```
+Detection → Tight ROI (48×48) → CNN Inference
+         → Expanded Display Box → Label overlay on screen
+```
+
+### Fallback Chain
+
+```
+YuNet DNN → Haar Cascade → Error
+```
+
+---
+
+## 🎓 Academic Context
 
 This project is designed for **Neural Networks & Deep Learning** coursework and covers:
 
-### 1. Deep Learning Concepts
-- Convolutional Neural Networks (CNNs)
-- Backpropagation and gradient descent
-- Activation functions (ReLU, Softmax)
-- Loss functions (Categorical Cross-Entropy)
-- Regularization techniques (Dropout, Batch Normalization)
+### Deep Learning Concepts
+- Convolutional Neural Networks (CNNs) — spatial feature extraction
+- Backpropagation & gradient descent — Adam optimizer
+- Activation functions — ReLU (hidden), Softmax (output)
+- Regularization — Dropout + Batch Normalization
 
-### 2. Computer Vision
-- Image preprocessing and normalization
-- Face detection algorithms (Haar Cascade)
-- Real-time video processing
-- Feature extraction from images
+### Computer Vision
+- Face detection algorithm comparison (Haar vs DNN)
+- Image preprocessing — grayscale, normalization, resize
+- Real-time video frame processing pipeline
+- Landmark extraction — MediaPipe 478 3D face points
 
-### 3. Model Training & Evaluation
-- Train/validation/test split
-- Learning curves and overfitting
-- Confusion matrix analysis
-- Precision, Recall, F1-score metrics
-- Hyperparameter tuning
+### Model Evaluation
+- Training/validation/test split strategy
+- Confusion matrix analysis per class
+- Precision, Recall, F1 metrics
+- Dataset imbalance effects (Disgust: 547 vs Happy: 7,215 samples)
 
-### 4. Production Deployment
-- REST API design
-- Client-server architecture
-- Real-time inference optimization
-- Full-stack web development
+### Production Engineering
+- REST API design with FastAPI
+- Client-server full-stack architecture
+- Singleton service management
+- EMA smoothing for stable real-time predictions
 
 ---
 
 ## 📊 Dataset: FER-2013
 
-- **Total Images**: 35,887 grayscale images
-- **Image Size**: 48×48 pixels
-- **Classes**: 7 emotions
-  - 😠 Angry
-  - 🤢 Disgust
-  - 😨 Fear
-  - 😊 Happy
-  - 😢 Sad
-  - 😲 Surprise
-  - 😐 Neutral
-- **Split**: ~28K train, ~3.5K validation, ~3.5K test
+| Property | Value |
+|----------|-------|
+| Total images | 35,887 grayscale |
+| Image size | 48×48 pixels |
+| Classes | 7 emotions |
+| Train split | ~28,000 |
+| Val split | ~3,500 |
+| Human accuracy | ~65±5% |
+| CNN baseline | ~60% |
 
-**Source**: [Kaggle FER-2013 Dataset](https://www.kaggle.com/datasets/msambare/fer2013)
+**Class Distribution (imbalanced):**
+
+| Emotion | Samples |
+|---------|---------|
+| 😠 Angry | 3,995 |
+| 🤢 Disgust | **547** ← most underrepresented |
+| 😨 Fear | 4,097 |
+| 😊 Happy | 7,215 |
+| 😢 Sad | 4,830 |
+| 😲 Surprise | 3,171 |
+| 😐 Neutral | 4,965 |
+
+**Source**: [Kaggle FER-2013](https://www.kaggle.com/datasets/msambare/fer2013)
 
 ---
 
 ## 🛠️ Technology Stack
 
 ### Backend
-- **Python 3.8+**
-- **TensorFlow 2.15** - Deep learning framework
-- **Keras** - High-level neural networks API
-- **OpenCV 4.8** - Computer vision library
-- **FastAPI 0.104** - Modern web framework
-- **Uvicorn** - ASGI server
-- **NumPy, Pandas** - Data processing
+- **Python 3.13** — fully compatible
+- **TensorFlow 2.x** — CNN training & inference
+- **OpenCV 4.13** — YuNet DNN + Haar fallback + video processing
+- **FastAPI 0.104** — REST API framework
+- **Uvicorn** — ASGI server
+- **scikit-learn** — Random Forest classifier
+- **NumPy** — array operations
 
 ### Frontend
-- **React 18** - UI framework
-- **Vite 5** - Build tool
-- **Axios** - HTTP client
-- **HTML5 Canvas** - Frame capture
-- **MediaDevices API** - Webcam access
+- **React 18** — UI framework
+- **Vite 5** — development build tool
+- **Axios** — HTTP client for API calls
+- **HTML5 Canvas** — webcam frame capture
 
 ### ML & CV
-- **CNN** - Convolutional Neural Network
-- **Haar Cascade** - Face detection
-- **Adam Optimizer** - Training optimization
-- **Data Augmentation** - Training enhancement
+- **YuNet ONNX** — DNN face detector
+- **MediaPipe 0.10 (Tasks API)** — 478 3D face landmarks
+- **Random Forest** — landmark-based classifier (Colab path)
+- **CNN** — pixel-based classifier (local path)
 
 ---
 
-## 🎯 Usage
+## 🌐 API Reference
 
-### 1. Train the CNN Model
-
-```bash
-python model/train.py
+```
+GET  /api/health          → Service status + model_loaded flag
+GET  /api/model-info      → Model input/output shape, emotion labels
+POST /api/predict         → Predict from uploaded image file
+POST /api/predict-base64  → Predict from base64-encoded frame
 ```
 
-**Output:**
-- Trained model: `trained_models/emotion_cnn_model.h5`
-- Training history: `logs/training_YYYYMMDD_HHMMSS/`
-- Performance plots: Loss/accuracy curves
-
-### 2. Evaluate Model Performance
-
-```bash
-python model/evaluate.py
-```
-
-**Output:**
-- Confusion matrix
-- Classification report
-- Per-class accuracy
-- Sample predictions visualization
-
-### 3. Test Real-time Detection (Standalone)
-
-```bash
-python realtime/webcam_app.py
-```
-
-**Controls:**
-- `q` - Quit
-- `s` - Save screenshot
-- `p` - Pause/Resume
-- `f` - Toggle FPS display
-- `d` - Debug mode (show top-3 predictions)
-
-### 4. Run Full Web Application
-
-**Terminal 1 (Backend):**
-```bash
-python backend/main.py
-```
-Access API at: http://localhost:8000  
-Swagger docs: http://localhost:8000/docs
-
-**Terminal 2 (Frontend):**
-```bash
-cd frontend
-npm install  # First time only
-npm run dev
-```
-Access app at: http://localhost:3000
+**Swagger UI**: http://localhost:8000/docs
 
 ---
 
-## 🌐 Web Application Features
+## 📈 Accuracy Roadmap
 
-### Frontend Interface
-- 📹 Live webcam video feed
-- 🎯 Real-time face detection overlays
-- 📊 Emotion probability bars for each face
-- ⚡ FPS counter and performance stats
-- 🎨 Color-coded emotion visualization
-- 📱 Responsive design for all devices
+| Setup | Detector | Classifier | Expected Accuracy |
+|-------|---------|------------|-------------------|
+| Local CPU (current) | YuNet | CNN | ~55% |
+| Local GPU | YuNet | CNN | ~62% |
+| **Google Colab** | MediaPipe | **Random Forest** | **~85%+** |
 
-### Backend API
-- `GET /api/health` - Service health check
-- `GET /api/model-info` - Model architecture info
-- `POST /api/predict` - Predict from image file
-- `POST /api/predict-base64` - Predict from base64 image
-
-### Real-time Workflow
-1. Frontend captures webcam frame
-2. Converts frame to base64
-3. Sends to backend API
-4. Backend detects faces
-5. CNN predicts emotions
-6. Results returned as JSON
-7. Frontend displays predictions
-8. Repeat every 500ms
-
----
-
-## 📈 Performance Optimization
-
-### Training
-- **GPU Acceleration**: Automatically used if available
-- **Early Stopping**: Stops when validation plateaus
-- **Learning Rate Decay**: Reduces LR on plateau
-- **Data Augmentation**: Increases training diversity
-
-### Inference
-- **Batch Processing**: Process multiple faces simultaneously
-- **Model Caching**: Load model once, reuse for all requests
-- **Frame Throttling**: Capture at 2 FPS (adjustable)
-- **Async Processing**: Non-blocking API requests
+To reach 85%+ accuracy: run `model/train_rf_colab.ipynb` on Colab → download `emotion_rf_model.pkl` → place in `trained_models/`.
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Common Issues
-
-**1. Model not found**
-```bash
-# Solution: Train the model
-python model/train.py
-```
-
-**2. Dataset not found**
-```bash
-# Solution: Download dataset
-python data/download_fer2013.py
-```
-
-**3. Backend connection failed**
-```bash
-# Solution: Ensure backend is running
-python backend/main.py
-# Check: curl http://localhost:8000/api/health
-```
-
-**4. Webcam not working**
-- Grant browser camera permissions
-- Close other apps using camera
-- Try different browser (Chrome recommended)
-- Ensure localhost or HTTPS
-
-See **[QUICKSTART.md](QUICKSTART.md)** for more troubleshooting tips.
-
----
-
-## 🎤 For Academic Presentation
-
-### Key Discussion Points
-
-1. **CNN Architecture**
-   - Why convolutional layers?
-   - Role of pooling and dropout
-   - Batch normalization benefits
-
-2. **Training Process**
-   - Loss function choice
-   - Optimizer comparison
-   - Preventing overfitting
-
-3. **Real-world Challenges**
-   - Low-resolution images (48×48)
-   - Class imbalance in dataset
-   - Lighting and pose variations
-
-4. **Performance Analysis**
-   - Confusion matrix interpretation
-   - Which emotions are hardest?
-   - Improvements and future work
-
-5. **Deployment**
-   - API design choices
-   - Real-time optimization
-   - Scalability considerations
-
----
-
-## 📚 Documentation
-
-- **[QUICKSTART.md](QUICKSTART.md)** - Complete setup guide
-- **[model/README.md](model/README.md)** - CNN training guide
-- **[realtime/README.md](realtime/README.md)** - Real-time detection
-- **[backend/README.md](backend/README.md)** - API documentation
-- **[frontend/README.md](frontend/README.md)** - Frontend guide
-- **[data/README.md](data/README.md)** - Dataset information
+| Problem | Fix |
+|---------|-----|
+| `Model Not Found` badge | Run `python model/train.py` first |
+| Port 3000 in use | Frontend auto-switches to 3001 |
+| Backend unhealthy | Restart `uvicorn backend.main:app --port 8000` |
+| YuNet ONNX missing | Run `python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx', 'trained_models/face_detection_yunet.onnx')"` |
+| Webcam not working | Grant browser camera permission; try Chrome |
+| `mediapipe.solutions` error | Expected on Python 3.13 — YuNet handles detection instead |
 
 ---
 
 ## 📝 Future Enhancements
 
-- [ ] Multi-face tracking across frames
-- [ ] Emotion history visualization
-- [ ] MTCNN for better face detection
-- [ ] Transfer learning from pre-trained models
-- [ ] Mobile app development
-- [ ] Cloud deployment (AWS/Azure)
-- [ ] Real-time emotion heatmaps
-- [ ] Voice/audio emotion integration
+- [x] Multi-face tracking across frames
+- [x] YuNet DNN face detection (done)
+- [x] Per-face EMA smoothing (done)
+- [ ] Emotion history timeline chart
+- [ ] Transfer learning (VGG-Face, ArcFace)
+- [ ] Mobile / Edge deployment (ONNX export)
+- [ ] Cloud deployment (Docker + AWS)
+- [ ] Audio + facial emotion fusion
 
 ---
 
-## 🤝 Contributing
+## 🤝 Research References
 
-This is an academic project. Suggestions and improvements welcome!
+- Ciraolo et al., *"Facial expression recognition based on emotional AI for tele-rehabilitation"*, Biomedical Signal Processing and Control, 2024
+- Goodfellow et al., *"Challenges in Representation Learning: A report on three machine learning contests"*, ICML 2013 (FER-2013)
+- MediaPipe Face Mesh: Kartynnik et al., 2019
 
 ---
 
 ## 📄 License
 
-MIT License - Feel free to use for educational purposes.
+MIT License — free to use for educational purposes.
 
 ---
 
@@ -476,39 +350,5 @@ MIT License - Feel free to use for educational purposes.
 
 **Academic Project**  
 Course: Neural Networks & Deep Learning  
-Year: 2026
-
----
-
-## 🙏 Acknowledgments
-
-- **FER-2013 Dataset**: Kaggle community
-- **TensorFlow/Keras**: Google Brain team
-- **OpenCV**: Open Source Computer Vision Library
-- **FastAPI**: Sebastián Ramírez
-- **React**: Meta/Facebook
-
----
-
-## 📞 Support
-
-For issues or questions:
-1. Check individual README files in each directory
-2. Review [QUICKSTART.md](QUICKSTART.md) troubleshooting section
-3. Examine error messages carefully
-4. Ensure all dependencies are installed
-
----
-
-## ⭐ Project Highlights
-
-✨ **Production-Grade Code**  
-✨ **Complete Full-Stack System**  
-✨ **Real-time Performance**  
-✨ **Academic Viva-Ready**  
-✨ **Comprehensive Documentation**  
-✨ **Modern Tech Stack**
-
----
-
-**Ready to start? See [QUICKSTART.md](QUICKSTART.md) for complete setup instructions!** 🚀
+Year: 2026  
+GitHub: [SAIVISHAL007/EmotionalRecogFromFaceExp](https://github.com/SAIVISHAL007/EmotionalRecogFromFaceExp)

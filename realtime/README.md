@@ -1,208 +1,115 @@
-# Real-Time Emotion Detection
+# 🎯 Real-Time Detection Module
 
-This module provides real-time facial emotion recognition using webcam video streams.
+This module handles face detection and emotion prediction for the live webcam pipeline.
 
-## Components
+---
 
-### 1. Face Detector (`detector.py`)
-- **Method**: Haar Cascade Classifier (default)
-- **Alternative**: MTCNN (optional, better accuracy)
-- **Features**:
-  - Face detection in video frames
-  - Bounding box extraction
-  - ROI (Region of Interest) extraction
-  - Configurable detection parameters
+## Detectors
 
-### 2. Emotion Predictor (`emotion_predictor.py`)
-- Wraps the trained CNN model
-- Preprocesses face images
-- Predicts emotions with confidence scores
-- Provides top-k predictions
-- Color-coded emotion visualization
+### YuNet DNN Detector (`yunet_detector.py`) ⭐ Primary
 
-### 3. Webcam Application (`webcam_app.py`)
-- Complete standalone application
-- Real-time video processing
-- Interactive controls
-- FPS monitoring
-- Statistics tracking
+OpenCV's built-in `cv2.FaceDetectorYN` powered by a ONNX neural network.
 
-## Quick Start
+| Feature | Value |
+|---------|-------|
+| Accuracy | ~97% (WIDER FACE benchmark) |
+| Max faces | Up to 10 simultaneously |
+| Bounding box | Full face (forehead to chin) |
+| Python support | 3.8 — 3.13 ✅ |
+| Model file | `trained_models/face_detection_yunet.onnx` |
 
-### Prerequisites
-Ensure you have trained the model:
-```bash
-python model/train.py
+**Key design**: The detector returns a **tight inference ROI** (fed directly to CNN) and a separately computed **expanded display bbox** (shown on screen). This ensures the CNN receives the same tight crop it was trained on while the user sees a proper full-face rectangle.
+
+```python
+from realtime.yunet_detector import YuNetFaceDetector
+
+detector = YuNetFaceDetector(score_threshold=0.6, max_faces=10)
+faces = detector.detect_faces(frame)  # List of (x, y, w, h)
+
+for bbox in faces:
+    roi = detector.extract_face_roi(frame, bbox)          # tight → CNN
+    disp = detector.get_display_bbox(bbox, fw, fh)        # expanded → draw
 ```
 
-### Run Webcam Application
+### Haar Cascade Detector (`detector.py`) — Fallback
+
+OpenCV Haar Cascade — used only when YuNet ONNX is unavailable.
+
+- Detects the eye/nose region (not full face)
+- Padding applied for display bbox, tight crop for CNN
+- `max_faces=5` by default
+
+### MediaPipe Face Mesh (`mediapipe_detector.py`) — RF Pipeline
+
+Used with the Random Forest classifier only (not the CNN path).
+
+- Uses MediaPipe **Tasks API** (`mp.tasks.vision.FaceLandmarker`) — works on Python 3.13
+- Returns 478 3D landmarks per face
+- Connected to `multi_emotion_predictor.py` for landmark-based RF inference
+
+---
+
+## Predictors
+
+### CNN Predictor (`emotion_predictor.py`)
+
+Wraps the TensorFlow CNN model for single-face inference.
+
+```python
+from realtime.emotion_predictor import EmotionPredictor
+
+predictor = EmotionPredictor()
+emotion, confidence, all_probs = predictor.predict_emotion(face_roi)
+# emotion: str, confidence: float, all_probs: ndarray(7,)
+```
+
+**Important**: No probability calibration is applied — raw softmax output is returned directly. The `_ema_decay` smoothing in `emotion_service.py` stabilises predictions across frames.
+
+### Random Forest Predictor (`multi_emotion_predictor.py`)
+
+Used with MediaPipe landmarks for 85%+ accuracy (Colab-trained model).
+
+```python
+from realtime.multi_emotion_predictor import MultiEmotionPredictor
+
+predictor = MultiEmotionPredictor(model_path='trained_models/emotion_rf_model.pkl')
+emotion, confidence, probs = predictor._predict_rf(landmarks)  # landmarks: (478, 3)
+```
+
+---
+
+## Standalone Webcam App (`webcam_app.py`)
+
+Run without the web interface:
+
 ```bash
 python realtime/webcam_app.py
 ```
 
-### Test Components Individually
+**Controls:**
+- `q` — Quit
+- `s` — Save screenshot
+- `p` — Pause/Resume
+- `f` — Toggle FPS display
 
-**Test Face Detector:**
-```bash
-python realtime/detector.py
-```
+---
 
-**Test Emotion Predictor:**
-```bash
-python realtime/emotion_predictor.py
-```
-
-## Webcam Controls
-
-| Key | Action |
-|-----|--------|
-| `q` | Quit application |
-| `s` | Save current frame |
-| `p` | Pause/Resume |
-| `f` | Toggle FPS display |
-| `d` | Toggle debug mode (show top-3 predictions) |
-
-## How It Works
+## Detection Flow
 
 ```
-Video Frame → Face Detection → Face Extraction → 
-Preprocessing → CNN Prediction → Emotion Label + Confidence
+Frame (BGR)
+    │
+    ▼
+YuNetFaceDetector.detect_faces()
+    │
+    ├── For each face bbox:
+    │       │
+    │       ├── extract_face_roi()  →  48×48 grayscale crop  →  CNN
+    │       └── get_display_bbox()  →  expanded box          →  draw on frame
+    │
+    ▼
+EmotionPredictor.predict_emotion(roi)
+    │
+    ▼
+Per-face EMA smoothing  →  Stable emotion label + probabilities
 ```
-
-### Step-by-Step Process
-
-1. **Frame Capture**: Get frame from webcam
-2. **Face Detection**: Detect faces using Haar Cascade
-3. **ROI Extraction**: Extract 48x48 grayscale face region
-4. **Preprocessing**: Normalize pixel values [0,1]
-5. **CNN Inference**: Predict emotion probabilities
-6. **Visualization**: Draw bounding box and emotion label
-7. **Display**: Show annotated frame
-
-## Technical Details
-
-### Face Detection (Haar Cascade)
-- **Algorithm**: Violin-Jones object detection
-- **Scale Factor**: 1.1 (how much image size is reduced at each scale)
-- **Min Neighbors**: 5 (quality threshold)
-- **Min Size**: 30x30 pixels (minimum face size)
-
-### Preprocessing Pipeline
-```python
-Face ROI → Grayscale → Resize (48x48) → 
-Normalize (/255) → Reshape (1,48,48,1)
-```
-
-### Emotion Colors
-- 🔴 **Angry**: Red
-- 🟢 **Disgust**: Dark Green
-- 🟣 **Fear**: Purple
-- 🟡 **Happy**: Yellow
-- 🔵 **Sad**: Blue
-- 🟠 **Surprise**: Orange
-- ⚪ **Neutral**: Gray
-
-## Performance Considerations
-
-### FPS Optimization
-- **Expected FPS**: 15-30 (depending on hardware)
-- **Bottleneck**: CNN inference time (~30-50ms per face)
-- **Optimization**: Use GPU acceleration if available
-
-### Multiple Faces
-The system can detect and predict emotions for multiple faces simultaneously.
-
-## Advanced Usage
-
-### Custom Camera
-```bash
-python realtime/webcam_app.py 1  # Use camera ID 1
-```
-
-### Custom Model
-```bash
-python realtime/webcam_app.py 0 path/to/custom_model.h5
-```
-
-### Using MTCNN (Better Accuracy)
-
-Install MTCNN:
-```bash
-pip install mtcnn
-```
-
-Modify `webcam_app.py`:
-```python
-self.face_detector = FaceDetector(method='mtcnn')
-```
-
-## Troubleshooting
-
-**Camera Not Opening?**
-- Check camera permissions
-- Try different camera ID: `python realtime/webcam_app.py 1`
-- Verify camera with: `python -c "import cv2; print(cv2.VideoCapture(0).isOpened())"`
-
-**Low FPS?**
-- Increase `scale_factor` in detector (trades accuracy for speed)
-- Reduce video resolution
-- Use GPU for model inference
-
-**No Faces Detected?**
-- Ensure good lighting
-- Face camera directly
-- Adjust `min_neighbors` parameter (lower = more detections)
-- Check `scale_factor` (lower = more sensitive)
-
-**Model Not Found?**
-- Train model first: `python model/train.py`
-- Check path: `trained_models/emotion_cnn_model.h5`
-
-## Academic Discussion Points
-
-For your viva/presentation:
-
-1. **Why Haar Cascade?**
-   - Fast, real-time performance
-   - Pre-trained, no additional training needed
-   - Trade-off: accuracy vs speed
-
-2. **Real-time Challenges**
-   - Frame rate vs accuracy
-   - Multiple face handling
-   - Lighting variations
-   - Pose variations
-
-3. **Preprocessing Importance**
-   - Consistent input format
-   - Normalization for model stability
-   - Grayscale reduces computational load
-
-4. **Confidence Thresholding**
-   - Low confidence predictions
-   - When to show "uncertain"?
-   - User experience considerations
-
-## Output
-
-The application provides:
-- Real-time emotion labels on video
-- Confidence scores
-- FPS counter
-- Session statistics
-- Saved screenshots (optional)
-
-## Integration
-
-This module can be integrated with:
-- Backend API (next step)
-- Web interface via video streaming
-- Mobile applications
-- IoT devices with cameras
-
-## Next Steps
-
-After testing real-time detection:
-1. Implement backend API: `python backend/main.py`
-2. Create web interface with React
-3. Full-stack integration
