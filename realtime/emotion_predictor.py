@@ -1,4 +1,4 @@
-"""
+﻿"""
 Emotion Prediction Module
 
 This module wraps the trained CNN model for real-time emotion prediction.
@@ -59,14 +59,14 @@ class EmotionPredictor:
         try:
             print(f"Loading model from: {self.model_path}")
             self.model = keras.models.load_model(self.model_path)
-            print("✅ Model loaded successfully")
+            print("Γ£à Model loaded successfully")
             
             # Verify model output shape
             expected_output = len(self.emotion_labels)
             actual_output = self.model.output_shape[-1]
             
             if actual_output != expected_output:
-                print(f"⚠️  Warning: Model output ({actual_output}) doesn't match "
+                print(f"ΓÜá∩╕Å  Warning: Model output ({actual_output}) doesn't match "
                       f"emotion labels ({expected_output})")
             
         except Exception as e:
@@ -291,16 +291,16 @@ def test_predictor():
             print(f"{i}. {emo:10s}: {conf*100:5.2f}%")
         
         print("\n" + "="*70)
-        print("✅ Predictor test successful!")
+        print("Γ£à Predictor test successful!")
         print("="*70 + "\n")
         
     except FileNotFoundError as e:
-        print(f"\n❌ {e}")
+        print(f"\nΓ¥î {e}")
         print("\nPlease train the model first:")
         print("  python model/train.py")
         print("="*70 + "\n")
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\nΓ¥î Error: {e}")
         import traceback
         traceback.print_exc()
 

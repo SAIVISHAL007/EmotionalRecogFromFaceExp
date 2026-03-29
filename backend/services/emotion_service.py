@@ -17,55 +17,80 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from realtime.detector import FaceDetector
 from realtime.emotion_predictor import EmotionPredictor
+try:
+    from realtime.yunet_detector import YuNetFaceDetector
+    YUNET_AVAILABLE = True
+except ImportError:
+    YUNET_AVAILABLE = False
+
+try:
+    from realtime.mediapipe_detector import MediaPipeFaceDetector, draw_rectangles_with_labels
+    from realtime.multi_emotion_predictor import MultiEmotionPredictor
+    USE_MEDIAPIPE = True
+except ImportError:
+    print("⚠️ MediaPipe solutions not available. Using YuNet+CNN pipeline.")
+    USE_MEDIAPIPE = False
 from model import config
 
 
 class EmotionRecognitionService:
-    """
-    Service class for emotion recognition operations.
-    
-    This class encapsulates the face detection and emotion prediction
-    logic for use by the API endpoints.
-    """
+    """Service class for emotion recognition operations."""
     
     def __init__(self, model_path=None):
-        """
-        Initialize the emotion recognition service.
-        
-        Args:
-            model_path (str): Path to trained model
-        """
         self.model_path = model_path or config.MODEL_SAVE_PATH
-        
-        # Initialize components
-        self.face_detector: Optional[FaceDetector] = None
-        self.emotion_predictor: Optional[EmotionPredictor] = None
-        self._emotion_ema: Optional[np.ndarray] = None
+        self.face_detector: Optional[Any] = None
+        self.haar_detector: Optional[Any] = None   # backup only
+        self.emotion_predictor: Optional[Any] = None
+        self._emotion_ema = {}
         self._ema_decay = 0.35
-        
         self._initialize()
     
     def _initialize(self):
         """Initialize face detector and emotion predictor."""
         print("Initializing Emotion Recognition Service...")
         
-        # Initialize face detector
-        self.face_detector = FaceDetector(
-            method='haar',
-            scale_factor=1.05,
-            min_neighbors=5,
-            min_size=(50, 50),
-            max_faces=1
-        )
-        print("✅ Face detector initialized")
-        
-        # Initialize emotion predictor
-        try:
-            self.emotion_predictor = EmotionPredictor(model_path=self.model_path)
-            print("✅ Emotion predictor initialized")
-        except FileNotFoundError as e:
-            print(f"❌ Failed to load model: {e}")
-            raise
+        if USE_MEDIAPIPE:
+            # ---- MediaPipe path (best, Python < 3.13) ----
+            self.face_detector = MediaPipeFaceDetector(
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5,
+                max_num_faces=10
+            )
+            print("✅ MediaPipe Face detector initialized")
+            rf_model_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                '..', 'trained_models', 'emotion_rf_model.pkl'
+            )
+            try:
+                self.emotion_predictor = MultiEmotionPredictor(model_path=rf_model_path, model_type='random_forest')
+                print("✅ RF Emotion predictor initialized")
+            except Exception as e:
+                print(f"❌ Failed to load RF model: {e}")
+                self.emotion_predictor = None
+        else:
+            # ---- YuNet + CNN path (Python 3.13 compatible) ----
+            if YUNET_AVAILABLE:
+                yunet = YuNetFaceDetector(score_threshold=0.6, max_faces=10)
+                if yunet.is_available:
+                    self.face_detector = yunet
+                    print("✅ YuNet multi-face detector initialized (Primary)")
+                else:
+                    self.face_detector = None
+            
+            if self.face_detector is None:
+                # Final fallback: Haar
+                self.face_detector = FaceDetector(
+                    method='haar', scale_factor=1.05, min_neighbors=5,
+                    min_size=(50, 50), max_faces=5
+                )
+                print("✅ Haar Face detector initialized (Fallback)")
+            
+            try:
+                self.emotion_predictor = EmotionPredictor(model_path=self.model_path)
+                print("✅ CNN Emotion predictor initialized")
+            except FileNotFoundError as e:
+                print(f"❌ Failed to load CNN model: {e}")
+                self.emotion_predictor = None
     
     def is_ready(self) -> bool:
         """
@@ -78,7 +103,7 @@ class EmotionRecognitionService:
                 self.emotion_predictor is not None and
                 self.emotion_predictor.model is not None)
 
-    def _require_components(self) -> Tuple[FaceDetector, EmotionPredictor]:
+    def _require_components(self) -> Tuple[Any, Any]:
         """Return initialized components or raise a clear error."""
         if self.face_detector is None or self.emotion_predictor is None:
             raise RuntimeError("Emotion service not initialized")
@@ -144,34 +169,89 @@ class EmotionRecognitionService:
         """
         face_detector, emotion_predictor = self._require_components()
 
-        # Detect faces
-        faces = face_detector.detect_faces(image)
-        if not faces:
-            self._emotion_ema = None
+        # ── YuNet / Haar multi-face CNN path ────────────────────────────────
+        if not USE_MEDIAPIPE:
+            faces = face_detector.detect_faces(image)
+            frame_h, frame_w = image.shape[:2]
+
+            # Prune EMA trackers for faces no longer detected
+            active_ids = set(range(len(faces)))
+            self._emotion_ema = {k: v for k, v in self._emotion_ema.items() if k in active_ids}
+
+            results = []
+            annotated_image = image.copy()
+
+            for face_id, (x, y, w, h) in enumerate(faces):
+                face_bbox = (x, y, w, h)
+
+                # Tight crop → CNN (matches FER-2013 48×48 training format)
+                face_roi = face_detector.extract_face_roi(
+                    image, face_bbox, target_size=(48, 48), grayscale=True
+                )
+                if face_roi is None or face_roi.size == 0:
+                    continue
+
+                _, _, all_probs = emotion_predictor.predict_emotion(face_roi)
+                probs = np.asarray(all_probs, dtype=np.float32)
+
+                # Per-face EMA smoothing
+                if face_id not in self._emotion_ema:
+                    self._emotion_ema[face_id] = probs
+                else:
+                    self._emotion_ema[face_id] = (
+                        self._ema_decay * self._emotion_ema[face_id]
+                        + (1.0 - self._ema_decay) * probs
+                    )
+
+                probs_sum = float(np.sum(self._emotion_ema[face_id]))
+                smoothed_probs = (
+                    self._emotion_ema[face_id] / probs_sum if probs_sum > 0 else probs
+                )
+                best_idx = int(np.argmax(smoothed_probs))
+                confidence = float(smoothed_probs[best_idx])
+                emotion = config.EMOTION_LABELS[best_idx]
+                probabilities = {
+                    label: float(prob)
+                    for label, prob in zip(config.EMOTION_LABELS, smoothed_probs)
+                }
+
+                # Expanded bbox for display — CNN still used tight crop above
+                disp_bbox = face_detector.get_display_bbox(face_bbox, frame_w, frame_h)
+                results.append({
+                    'bbox': list(disp_bbox),
+                    'emotion': emotion,
+                    'confidence': confidence,
+                    'probabilities': probabilities,
+                })
+                annotated_image = emotion_predictor.draw_emotion_label(
+                    annotated_image, disp_bbox, emotion, confidence, show_confidence=True
+                )
+
+            return results, annotated_image
+
+        # MediaPipe processing
+        faces_dict = face_detector.detect_faces(image)
+        if not faces_dict:
+            self._emotion_ema = {}
         
         results = []
         annotated_image = image.copy()
+        face_predictions = {}
         
-        for face_bbox in faces:
-            # Extract face ROI
-            face_roi = face_detector.extract_face_roi(
-                image, face_bbox,
-                target_size=(48, 48),
-                grayscale=True
-            )
+        for face_id, face_data in faces_dict.items():
             
             # Predict emotion
-            _, _, all_probs = emotion_predictor.predict_emotion(face_roi)
+            emotion, confidence, all_probs = emotion_predictor._predict_rf(face_data.landmarks)
 
             probs = np.asarray(all_probs, dtype=np.float32)
-            if self._emotion_ema is None:
-                self._emotion_ema = probs
+            if face_id not in self._emotion_ema:
+                self._emotion_ema[face_id] = probs
             else:
-                self._emotion_ema = self._ema_decay * self._emotion_ema + (1.0 - self._ema_decay) * probs
+                self._emotion_ema[face_id] = self._ema_decay * self._emotion_ema[face_id] + (1.0 - self._ema_decay) * probs
 
             # Keep numeric stability for downstream dict serialization.
-            probs_sum = float(np.sum(self._emotion_ema))
-            smoothed_probs = self._emotion_ema / probs_sum if probs_sum > 0 else probs
+            probs_sum = float(np.sum(self._emotion_ema[face_id]))
+            smoothed_probs = self._emotion_ema[face_id] / probs_sum if probs_sum > 0 else probs
 
             best_idx = int(np.argmax(smoothed_probs))
             confidence = float(smoothed_probs[best_idx])
@@ -184,7 +264,7 @@ class EmotionRecognitionService:
             }
             
             # Add to results
-            x, y, w, h = face_bbox
+            x, y, w, h = face_data.bbox
             results.append({
                 'bbox': [int(x), int(y), int(w), int(h)],
                 'emotion': emotion,
@@ -192,11 +272,9 @@ class EmotionRecognitionService:
                 'probabilities': probabilities
             })
             
-            # Draw on image
-            annotated_image = emotion_predictor.draw_emotion_label(
-                annotated_image, face_bbox, emotion, confidence,
-                show_confidence=True
-            )
+            face_predictions[face_id] = (emotion, confidence)
+            
+        annotated_image = draw_rectangles_with_labels(annotated_image, faces_dict, face_predictions)
         
         return results, annotated_image
     
@@ -210,19 +288,13 @@ class EmotionRecognitionService:
         if not self.is_ready():
             return None
 
-        _, emotion_predictor = self._require_components()
-        info = emotion_predictor.get_model_info()
-        if info is None:
-            return None
-        
-        # Convert to JSON-serializable format
         return {
-            'model_path': str(info['model_path']),
-            'input_shape': [int(x) if x is not None else None for x in info['input_shape']],
-            'output_shape': [int(x) if x is not None else None for x in info['output_shape']],
-            'num_classes': int(info['num_classes']),
-            'emotion_labels': info['emotion_labels'],
-            'total_parameters': int(info['total_parameters'])
+            'model_path': str(self.model_path),
+            'input_shape': [478, 3],
+            'output_shape': [len(config.EMOTION_LABELS)],
+            'num_classes': len(config.EMOTION_LABELS),
+            'emotion_labels': config.EMOTION_LABELS,
+            'total_parameters': 0
         }
     
     def encode_image(self, image: np.ndarray, format: str = '.jpg') -> bytes:
@@ -266,19 +338,17 @@ class EmotionRecognitionService:
 _service_instance = None
 
 
+def reset_emotion_service():
+    """Force-reset the singleton so the next call creates a fresh instance."""
+    global _service_instance
+    _service_instance = None
+
+
 def get_emotion_service(model_path=None) -> EmotionRecognitionService:
     """
     Get or create the global emotion recognition service instance.
-    
-    Args:
-        model_path (str): Path to model (only used on first call)
-        
-    Returns:
-        EmotionRecognitionService: Service instance
+    Always creates a fresh instance to ensure the latest model is loaded.
     """
     global _service_instance
-    
-    if _service_instance is None:
-        _service_instance = EmotionRecognitionService(model_path=model_path)
-    
+    _service_instance = EmotionRecognitionService(model_path=model_path)
     return _service_instance

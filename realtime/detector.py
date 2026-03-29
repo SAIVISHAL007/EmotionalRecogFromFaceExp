@@ -148,15 +148,9 @@ class FaceDetector:
             area_ratio = (w * h) / frame_area
             aspect_ratio = w / float(h)
             if 0.02 <= area_ratio <= 0.60 and 0.75 <= aspect_ratio <= 1.33:
-                expanded = self._expand_bbox(
-                    (int(x), int(y), int(w), int(h)),
-                    frame_w,
-                    frame_h,
-                    pad_x=0.18,
-                    pad_top=0.12,
-                    pad_bottom=0.55,
-                )
-                filtered_faces.append(expanded)
+                # Keep the Haar detection as-is for CNN inference accuracy
+                # (FER-2013 was trained on tight face crops — no padding)
+                filtered_faces.append((int(x), int(y), int(w), int(h)))
 
         # Sort by area descending and keep top-N faces.
         filtered_faces.sort(key=lambda b: b[2] * b[3], reverse=True)
@@ -207,16 +201,7 @@ class FaceDetector:
             # Ensure positive dimensions
             x, y = max(0, x), max(0, y)
             w, h = max(0, w), max(0, h)
-            faces.append(
-                self._expand_bbox(
-                    (x, y, w, h),
-                    frame_w,
-                    frame_h,
-                    pad_x=0.12,
-                    pad_top=0.16,
-                    pad_bottom=0.28,
-                )
-            )
+            faces.append((max(0, x), max(0, y), max(0, w), max(0, h)))
         
         faces.sort(key=lambda b: b[2] * b[3], reverse=True)
         return faces[:self.max_faces]
@@ -292,21 +277,16 @@ class FaceDetector:
     
     def extract_face_roi(self, frame, bbox, target_size=(48, 48), grayscale=True):
         """
-        Extract Face Region of Interest (ROI) from frame.
-        
-        Args:
-            frame (numpy.ndarray): Input frame
-            bbox (tuple): Bounding box (x, y, w, h)
-            target_size (tuple): Size to resize face to
-            grayscale (bool): Whether to convert to grayscale
-            
-        Returns:
-            numpy.ndarray: Extracted and preprocessed face ROI
+        Extract Face Region of Interest for CNN inference.
+        Uses the raw tight Haar bbox — NOT the padded display bbox —
+        so the crop matches FER-2013 training data format.
         """
         x, y, w, h = bbox
         
         # Extract face region
         face_roi = frame[y:y+h, x:x+w]
+        if face_roi.size == 0:
+            face_roi = frame[max(0,y):max(1,y+h), max(0,x):max(1,x+w)]
         
         # Convert to grayscale if needed
         if grayscale and len(face_roi.shape) == 3:
@@ -316,6 +296,15 @@ class FaceDetector:
         face_roi = cv2.resize(face_roi, target_size, interpolation=cv2.INTER_AREA)
         
         return face_roi
+
+    def get_display_bbox(self, bbox, frame_w, frame_h):
+        """Return an expanded bbox for display only — does NOT affect CNN inference."""
+        return self._expand_bbox(
+            bbox, frame_w, frame_h,
+            pad_x=0.12,
+            pad_top=0.28,
+            pad_bottom=0.10,
+        )
     
     def draw_face_boxes(self, frame, faces, color=(0, 255, 0), thickness=2):
         """

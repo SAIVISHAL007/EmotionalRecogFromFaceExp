@@ -38,12 +38,15 @@ data/fer2013/
 data/fer2013.csv
 data/*.zip
 *.csv
+fer2013.zip
 
-# Models
+# Models & large binaries
 trained_models/*.h5
 trained_models/*.keras
 trained_models/*.pb
 trained_models/*.weights.h5
+trained_models/*.pkl
+trained_models/*.onnx
 
 # Logs
 logs/
@@ -67,3 +70,7 @@ frontend/.env.local
 temp/
 tmp/
 .venv/
+
+# Research PDFs (large, tracked separately)
+*.pdf
+pdf_output*.txt
