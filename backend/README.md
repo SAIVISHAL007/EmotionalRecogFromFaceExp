@@ -6,15 +6,18 @@ This backend provides REST API endpoints for real-time facial emotion recognitio
 
 The backend integrates:
 - Trained CNN model
-- Face detection (Haar Cascade)
+- Face detection (YuNet DNN primary, Haar fallback)
+- Optional MediaPipe + Random Forest alternate path
 - FastAPI web framework
 - RESTful API endpoints
 - CORS support for frontend integration
 
+The runtime defaults to the YuNet + CNN pipeline. Set `EMOTION_PIPELINE=mediapipe` only if you want the alternate landmark-based path.
+
 ## Architecture
 
 ```
-Client Request → FastAPI → Face Detector → CNN Model → Emotion Prediction → JSON Response
+Client Request → FastAPI → YuNet Face Detector → CNN Model → Emotion Prediction → JSON Response
 ```
 
 ## API Endpoints
@@ -203,6 +206,12 @@ backend/
 │   └── emotion_service.py   # Business logic
 └── requirements.txt         # Backend dependencies
 ```
+
+Legacy and optional runtime helpers live in `realtime/`:
+
+- `realtime/yunet_detector.py` for the primary detector
+- `realtime/detector.py` for Haar fallback
+- `realtime/mediapipe_detector.py` and `realtime/multi_emotion_predictor.py` for the optional alternate pipeline
 
 ## CORS Configuration
 

@@ -12,7 +12,6 @@ OpenCV's built-in `cv2.FaceDetectorYN` powered by a ONNX neural network.
 
 | Feature | Value |
 |---------|-------|
-| Accuracy | ~97% (WIDER FACE benchmark) |
 | Max faces | Up to 10 simultaneously |
 | Bounding box | Full face (forehead to chin) |
 | Python support | 3.8 — 3.13 ✅ |
@@ -41,9 +40,9 @@ OpenCV Haar Cascade — used only when YuNet ONNX is unavailable.
 
 ### MediaPipe Face Mesh (`mediapipe_detector.py`) — RF Pipeline
 
-Used with the Random Forest classifier only (not the CNN path).
+Optional alternate pipeline used with the Random Forest classifier.
 
-- Uses MediaPipe **Tasks API** (`mp.tasks.vision.FaceLandmarker`) — works on Python 3.13
+- Uses MediaPipe Face Mesh landmarks and a lightweight feature extractor
 - Returns 478 3D landmarks per face
 - Connected to `multi_emotion_predictor.py` for landmark-based RF inference
 
@@ -67,7 +66,7 @@ emotion, confidence, all_probs = predictor.predict_emotion(face_roi)
 
 ### Random Forest Predictor (`multi_emotion_predictor.py`)
 
-Used with MediaPipe landmarks for 85%+ accuracy (Colab-trained model).
+Used with MediaPipe landmarks in the optional alternate path.
 
 ```python
 from realtime.multi_emotion_predictor import MultiEmotionPredictor
@@ -80,7 +79,7 @@ emotion, confidence, probs = predictor._predict_rf(landmarks)  # landmarks: (478
 
 ## Standalone Webcam App (`webcam_app.py`)
 
-Run without the web interface:
+Legacy standalone webcam app. Run without the web interface:
 
 ```bash
 python realtime/webcam_app.py

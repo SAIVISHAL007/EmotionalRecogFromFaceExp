@@ -9,7 +9,7 @@ CNN model training for the Facial Emotion Recognition System.
 | File | Purpose |
 |------|---------|
 | `train.py` | Local CPU training — FER-2013 dataset |
-| `train_rf_colab.ipynb` | 🚀 **Recommended** — Colab notebook, Random Forest, 85%+ accuracy |
+| `train_rf_colab.ipynb` | Colab notebook for the optional MediaPipe + Random Forest workflow |
 | `architecture.py` | 4-block CNN definition |
 | `config.py` | Hyperparameters, paths, emotion labels |
 | `evaluate.py` | Confusion matrix, classification report |
@@ -66,7 +66,7 @@ Dense(7)   → Softmax
 
 ---
 
-## Option 2: Google Colab — Random Forest (Recommended for Production)
+## Option 2: Google Colab — Random Forest (Optional Alternate Workflow)
 
 Open `model/train_rf_colab.ipynb` in Google Colab:
 
@@ -77,15 +77,15 @@ Open `model/train_rf_colab.ipynb` in Google Colab:
 5. Download `emotion_rf_model.pkl`
 6. Place in `trained_models/`
 
-**Why RF+MediaPipe beats CNN+Haar:**
+**Why the alternate RF path exists:**
 
 | Aspect | CNN (local) | RF + MediaPipe (Colab) |
 |--------|------------|------------------------|
-| Accuracy | ~55% | **~85%+** |
+| Accuracy | ~55% | Varies by run and feature selection |
 | Input | Raw 48×48 pixels | 478 3D landmarks |
 | Imbalance handling | SMOTE optional | SMOTE applied |
 | Inference speed | ~80ms/face | ~5ms/face |
-| Python 3.13 | ✅ | ✅ (Tasks API) |
+| Python environment | Tested with the current repo runtime | Optional path may vary by dependency version |
 
 ---
 

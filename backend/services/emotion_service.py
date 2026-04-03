@@ -23,13 +23,10 @@ try:
 except ImportError:
     YUNET_AVAILABLE = False
 
-try:
-    from realtime.mediapipe_detector import MediaPipeFaceDetector, draw_rectangles_with_labels
-    from realtime.multi_emotion_predictor import MultiEmotionPredictor
-    USE_MEDIAPIPE = True
-except ImportError:
-    print("⚠️ MediaPipe solutions not available. Using YuNet+CNN pipeline.")
-    USE_MEDIAPIPE = False
+# Default to the README's primary runtime path: YuNet DNN + CNN.
+# MediaPipe + Random Forest remains an explicit alternative.
+PIPELINE_MODE = os.getenv("EMOTION_PIPELINE", "yunet").strip().lower()
+USE_MEDIAPIPE = PIPELINE_MODE in {"mediapipe", "rf", "random_forest"}
 from model import config
 
 
@@ -50,47 +47,54 @@ class EmotionRecognitionService:
         print("Initializing Emotion Recognition Service...")
         
         if USE_MEDIAPIPE:
-            # ---- MediaPipe path (best, Python < 3.13) ----
-            self.face_detector = MediaPipeFaceDetector(
-                min_detection_confidence=0.5,
-                min_tracking_confidence=0.5,
-                max_num_faces=10
-            )
-            print("✅ MediaPipe Face detector initialized")
-            rf_model_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                '..', 'trained_models', 'emotion_rf_model.pkl'
-            )
             try:
-                self.emotion_predictor = MultiEmotionPredictor(model_path=rf_model_path, model_type='random_forest')
-                print("✅ RF Emotion predictor initialized")
-            except Exception as e:
-                print(f"❌ Failed to load RF model: {e}")
-                self.emotion_predictor = None
-        else:
-            # ---- YuNet + CNN path (Python 3.13 compatible) ----
-            if YUNET_AVAILABLE:
-                yunet = YuNetFaceDetector(score_threshold=0.6, max_faces=10)
-                if yunet.is_available:
-                    self.face_detector = yunet
-                    print("✅ YuNet multi-face detector initialized (Primary)")
-                else:
-                    self.face_detector = None
-            
-            if self.face_detector is None:
-                # Final fallback: Haar
-                self.face_detector = FaceDetector(
-                    method='haar', scale_factor=1.05, min_neighbors=5,
-                    min_size=(50, 50), max_faces=5
+                from realtime.mediapipe_detector import MediaPipeFaceDetector, draw_rectangles_with_labels
+                from realtime.multi_emotion_predictor import MultiEmotionPredictor
+
+                self._draw_rectangles_with_labels = draw_rectangles_with_labels
+                self.face_detector = MediaPipeFaceDetector(
+                    min_detection_confidence=0.5,
+                    min_tracking_confidence=0.5,
+                    max_num_faces=10,
                 )
-                print("✅ Haar Face detector initialized (Fallback)")
-            
-            try:
-                self.emotion_predictor = EmotionPredictor(model_path=self.model_path)
-                print("✅ CNN Emotion predictor initialized")
-            except FileNotFoundError as e:
-                print(f"❌ Failed to load CNN model: {e}")
-                self.emotion_predictor = None
+                print("✅ MediaPipe Face detector initialized")
+
+                rf_model_path = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                    'trained_models', 'emotion_rf_model.pkl'
+                )
+                self.emotion_predictor = MultiEmotionPredictor(
+                    model_path=rf_model_path,
+                    model_type='random_forest',
+                )
+                print("✅ RF Emotion predictor initialized")
+                return
+            except Exception as e:
+                print(f"⚠️ MediaPipe pipeline unavailable, falling back to YuNet+CNN: {e}")
+
+        # ---- YuNet + CNN path (README primary runtime path) ----
+        if YUNET_AVAILABLE:
+            yunet = YuNetFaceDetector(score_threshold=0.6, max_faces=10)
+            if yunet.is_available:
+                self.face_detector = yunet
+                print("✅ YuNet multi-face detector initialized (Primary)")
+            else:
+                self.face_detector = None
+
+        if self.face_detector is None:
+            # Final fallback: Haar
+            self.face_detector = FaceDetector(
+                method='haar', scale_factor=1.05, min_neighbors=5,
+                min_size=(50, 50), max_faces=5
+            )
+            print("✅ Haar Face detector initialized (Fallback)")
+
+        try:
+            self.emotion_predictor = EmotionPredictor(model_path=self.model_path)
+            print("✅ CNN Emotion predictor initialized")
+        except FileNotFoundError as e:
+            print(f"❌ Failed to load CNN model: {e}")
+            self.emotion_predictor = None
     
     def is_ready(self) -> bool:
         """
@@ -274,7 +278,10 @@ class EmotionRecognitionService:
             
             face_predictions[face_id] = (emotion, confidence)
             
-        annotated_image = draw_rectangles_with_labels(annotated_image, faces_dict, face_predictions)
+        draw_rectangles = getattr(self, '_draw_rectangles_with_labels', None)
+        if draw_rectangles is None:
+            from realtime.mediapipe_detector import draw_rectangles_with_labels as draw_rectangles
+        annotated_image = draw_rectangles(annotated_image, faces_dict, face_predictions)
         
         return results, annotated_image
     
