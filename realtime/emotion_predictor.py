@@ -14,6 +14,7 @@ import sys
 import numpy as np
 import cv2
 from tensorflow import keras
+from typing import Any, cast
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -112,6 +113,8 @@ class EmotionPredictor:
         """
         # Preprocess the face
         preprocessed_face = self.preprocess_face(face_image)
+        if self.model is None:
+            raise RuntimeError("Model is not loaded")
         
         # Predict
         predictions = self.model.predict(preprocessed_face, verbose=0)
@@ -136,6 +139,8 @@ class EmotionPredictor:
         """
         # Preprocess and predict
         preprocessed_face = self.preprocess_face(face_image)
+        if self.model is None:
+            raise RuntimeError("Model is not loaded")
         predictions = self.model.predict(preprocessed_face, verbose=0)[0]
         
         # Get top-k indices
@@ -258,6 +263,8 @@ def test_predictor():
         
         # Display model info
         info = predictor.get_model_info()
+        if info is None:
+            raise RuntimeError("Model info is unavailable")
         print("\nModel Information:")
         print(f"  Input shape: {info['input_shape']}")
         print(f"  Output shape: {info['output_shape']}")

@@ -23,7 +23,7 @@ import os
 import sys
 import time
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional, cast
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -91,9 +91,10 @@ async def startup_event():
         
         if emotion_service.is_ready():
             print("\n✅ Service initialized successfully")
-            model_info = emotion_service.get_model_info()
-            print(f"   Model: {model_info['num_classes']} emotions")
-            print(f"   Emotions: {', '.join(model_info['emotion_labels'])}")
+            loaded_info = emotion_service.get_model_info()
+            if loaded_info is not None:
+                print(f"   Model: {loaded_info['num_classes']} emotions")
+                print(f"   Emotions: {', '.join(loaded_info['emotion_labels'])}")
         else:
             print("\n⚠️  Service initialized but not ready")
     
@@ -220,6 +221,8 @@ async def health_check():
     
     if is_ready:
         full_info = emotion_service.get_model_info()
+        if full_info is None:
+            raise HTTPException(status_code=503, detail="Model info unavailable")
         model_info = {
             "num_classes": full_info['num_classes'],
             "emotions": full_info['emotion_labels']
@@ -248,7 +251,13 @@ async def model_info():
         )
     
     info = emotion_service.get_model_info()
-    return ModelInfoResponse(**info)
+    if info is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Model info unavailable"
+        )
+    typed_info = cast(Dict[str, Any], info)
+    return ModelInfoResponse(**typed_info)
 
 
 @app.post("/api/predict", response_model=PredictionResponse)
@@ -335,7 +344,7 @@ async def predict_emotion_base64(request: Request):
     
     try:
         # Parse request body
-        body = await request.json()
+        body = cast(Dict[str, Any], await request.json())
         
         if 'image' not in body:
             raise HTTPException(

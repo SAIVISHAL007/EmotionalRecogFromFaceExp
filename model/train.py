@@ -92,7 +92,7 @@ def setup_callbacks(model_path, log_dir):
     )
     callbacks.append(reduce_lr)
     
-    print(f"\n✅ Callbacks configured:")
+    print(f"\n Callbacks configured:")
     print(f"   - ModelCheckpoint: {model_path}")
     print(f"   - EarlyStopping: patience={config.EARLY_STOPPING_PATIENCE}")
     print(f"   - ReduceLROnPlateau: factor={config.REDUCE_LR_FACTOR}, patience={config.REDUCE_LR_PATIENCE}\n")
@@ -163,7 +163,7 @@ def split_validation_data(X_train, y_train, validation_split=0.2):
         stratify=np.argmax(y_train, axis=1)  # Stratify by class
     )
     
-    print(f"\n📊 Data split:")
+    print(f"\n Data split:")
     print(f"   Training: {len(X_train)} samples")
     print(f"   Validation: {len(X_val)} samples")
     print(f"   Validation split: {validation_split*100}%\n")
@@ -187,7 +187,7 @@ def main():
     test_dir  = os.path.join(config.DATA_DIR, 'test')
 
     if not os.path.isdir(train_dir):
-        print(f"\n❌ Training directory not found: {train_dir}")
+        print(f"\n Training directory not found: {train_dir}")
         return
 
     # ==================
@@ -245,7 +245,7 @@ def main():
         shuffle=False
     )
 
-    print(f"\n📊 Data splits:")
+    print(f"\n Data splits:")
     print(f"   Training batches : {len(train_gen)}  ({train_gen.samples} samples)")
     print(f"   Validation batches: {len(val_gen)}  ({val_gen.samples} samples)")
     print(f"   Test batches     : {len(test_gen)}  ({test_gen.samples} samples)")
@@ -335,7 +335,7 @@ def main():
         plot_training_history(history, save_path=plot_path)
         print(f"Plots saved to: {plot_path}")
     except Exception as e:
-        print(f"⚠️  Could not generate plots (headless env): {e}")
+        print(f"  Could not generate plots (headless env): {e}")
 
     # ==================
     # 7. Summary
@@ -343,14 +343,14 @@ def main():
     print("\n" + "="*70)
     print("TRAINING PIPELINE COMPLETE")
     print("="*70)
-    print(f"✅ Model saved: {config.MODEL_SAVE_PATH}")
-    print(f"✅ Weights saved: {weights_path}")
-    print(f"✅ History saved: {history_path}")
-    print(f"✅ Logs directory: {log_dir}")
-    print(f"\n📊 Final Performance:")
+    print(f" Model saved: {config.MODEL_SAVE_PATH}")
+    print(f" Weights saved: {weights_path}")
+    print(f" History saved: {history_path}")
+    print(f" Logs directory: {log_dir}")
+    print(f"\n Final Performance:")
     print(f"   Test Accuracy: {test_accuracy*100:.2f}%")
     print(f"   Test Loss: {test_loss:.4f}")
-    print("\n💡 Next Steps:")
+    print("\n Next Steps:")
     print("   1. Run evaluation: python model/evaluate.py")
     print("   2. Start backend API: uvicorn backend.main:app --reload --port 8000")
     print("="*70 + "\n")
@@ -364,18 +364,18 @@ if __name__ == "__main__":
     # Check GPU availability
     gpus = tf.config.list_physical_devices('GPU')
     if gpus:
-        print(f"\n🎮 GPU Available: {len(gpus)} GPU(s) detected")
+        print(f"\n GPU Available: {len(gpus)} GPU(s) detected")
         for gpu in gpus:
             print(f"   {gpu}")
     else:
-        print("\n💻 Running on CPU")
+        print("\n Running on CPU")
     
     # Run training
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n⚠️  Training interrupted by user")
+        print("\n\n  Training interrupted by user")
     except Exception as e:
-        print(f"\n\n❌ Error during training: {e}")
+        print(f"\n\n Error during training: {e}")
         import traceback
         traceback.print_exc()

@@ -34,11 +34,12 @@ def build_cnn_model(input_shape=(48, 48, 1), num_classes=7):
     """
     
     model = models.Sequential(name='EmotionCNN')
+    model.add(keras.Input(shape=input_shape, name='input'))
     
     # ==================
     # Block 1: Conv + Pool
     # ==================
-    model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='same', input_shape=input_shape, name='conv1'))
+    model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='same', name='conv1'))
     model.add(BatchNormalization(name='bn1'))
     model.add(Activation('relu', name='relu1'))
     model.add(MaxPooling2D(pool_size=(2, 2), name='pool1'))

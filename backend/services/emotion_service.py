@@ -10,13 +10,14 @@ import sys
 import numpy as np
 import cv2
 import base64
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from realtime.detector import FaceDetector
 from realtime.emotion_predictor import EmotionPredictor
+YuNetFaceDetector = None
 try:
     from realtime.yunet_detector import YuNetFaceDetector
     YUNET_AVAILABLE = True
@@ -73,8 +74,9 @@ class EmotionRecognitionService:
                 print(f"⚠️ MediaPipe pipeline unavailable, falling back to YuNet+CNN: {e}")
 
         # ---- YuNet + CNN path (README primary runtime path) ----
-        if YUNET_AVAILABLE:
-            yunet = YuNetFaceDetector(score_threshold=0.6, max_faces=10)
+        if YUNET_AVAILABLE and YuNetFaceDetector is not None:
+            yunet_cls = cast(Any, YuNetFaceDetector)
+            yunet = yunet_cls(score_threshold=0.6, max_faces=10)
             if yunet.is_available:
                 self.face_detector = yunet
                 print("✅ YuNet multi-face detector initialized (Primary)")
